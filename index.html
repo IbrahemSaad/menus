@@ -1,75 +1,147 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
+
 <meta charset="UTF-8">
 <title>طلبات الغداء</title>
+
+<style>
+
+body{
+background:#0b0b0b;
+color:white;
+font-family:sans-serif;
+max-width:420px;
+margin:40px auto;
+text-align:center;
+}
+
+h2{
+margin-bottom:30px;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-bottom:12px;
+background:#222;
+border:none;
+color:white;
+border-radius:6px;
+}
+
+button{
+padding:10px 16px;
+border:none;
+border-radius:6px;
+margin:5px;
+cursor:pointer;
+}
+
+.add{
+background:#3c8d40;
+color:white;
+}
+
+.clear{
+background:#555;
+color:white;
+}
+
+#orders{
+margin-top:20px;
+text-align:right;
+}
+
+.order{
+padding:8px 0;
+border-bottom:1px solid #333;
+}
+
+</style>
+
 </head>
 
-<body style="font-family:sans-serif;max-width:420px;margin:40px auto">
+<body>
 
 <h2>🍽️ طلبات الغداء</h2>
 
-<input id="name" placeholder="اسمك"><br><br>
-<input id="food" placeholder="طلبك"><br><br>
+<input id="name" placeholder="اسمك">
 
-<button onclick="addOrder()">إضافة الطلب</button>
-<button onclick="clearOrders()">مسح الكل</button>
+<input id="food" placeholder="طلبك">
 
-<hr>
+<button class="add" onclick="addOrder()">إضافة الطلب</button>
+<button class="clear" onclick="clearOrders()">مسح الكل</button>
 
 <div id="orders"></div>
 
 <script>
 
-const API = "https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/";
+const API =
+"https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/";
+
 
 async function loadOrders(){
 
-  const res = await fetch(API);
-  const data = await res.json();
+const res = await fetch(API);
+const data = await res.json();
 
-  const div = document.getElementById("orders");
-  div.innerHTML="";
+const div = document.getElementById("orders");
 
-  for(const name in data){
-    div.innerHTML += `<div>👤 ${name} — ${data[name]}</div>`;
-  }
+div.innerHTML="";
+
+for(const name in data){
+
+div.innerHTML += `
+<div class="order">
+👤 ${name} — ${data[name]}
+</div>
+`;
 
 }
+
+}
+
 
 async function addOrder(){
 
-  const name = document.getElementById("name").value;
-  const food = document.getElementById("food").value;
+const name = document.getElementById("name").value.trim();
+const food = document.getElementById("food").value.trim();
 
-  const res = await fetch(API);
-  const data = await res.json();
+if(!name || !food) return;
 
-  data[name] = food;
+const res = await fetch(API);
+const data = await res.json();
 
-  await fetch(API,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify(data)
-  });
+data[name] = food;
 
-  loadOrders();
+await fetch(API,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(data)
+});
+
+document.getElementById("name").value="";
+document.getElementById("food").value="";
+
+loadOrders();
 
 }
 
+
 async function clearOrders(){
 
-  await fetch(API,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify({})
-  });
+await fetch(API,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({})
+});
 
-  loadOrders();
+loadOrders();
 
 }
 
