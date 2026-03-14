@@ -170,6 +170,19 @@ textarea{resize:none}
     </div>
 
     <div class="card">
+      <p class="lbl">نسبة الخدمة والضريبة (خليها 0 لو مفيش)</p>
+      <div class="flex-row" style="margin-bottom:8px">
+        <input id="setServiceName" placeholder="الاسم (مثال: كوفير/خدمة)" style="flex:2" />
+        <input id="setServiceRate" placeholder="النسبة %" type="number" style="flex:1" />
+      </div>
+      <div class="flex-row" style="margin-bottom:8px">
+        <input id="setTaxName" placeholder="الاسم (مثال: ق. مضافة)" style="flex:2" />
+        <input id="setTaxRate" placeholder="النسبة %" type="number" style="flex:1" />
+      </div>
+      <button class="btn btn-gold btn-full" onclick="saveFees()">💾 حفظ الرسوم</button>
+    </div>
+
+    <div class="card">
       <p class="lbl">أضف صنف جديد</p>
       <select id="addCat" style="margin-bottom:8px">
         <option value="mains">🥩 الوجبة الرئيسية</option>
@@ -183,6 +196,7 @@ textarea{resize:none}
         <button class="btn btn-gold" onclick="addMenuItem()">+</button>
       </div>
     </div>
+    
     <div class="admin-tabs" id="adminTabs"></div>
     <div class="card" id="adminItems"></div>
     
@@ -207,7 +221,6 @@ textarea{resize:none}
 // STATE & LOCAL BACKUP
 // ══════════════════════════════════════════════════════════════
 const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
-const COVER = 0.12, TAX = 0.14;
 
 const CAT_META = {
   mains:    {label:'الوجبة',    emoji:'🥩', multi:false},
@@ -217,10 +230,11 @@ const CAT_META = {
 };
 
 let state = {
-  restaurantName: "المحمدي",
+  restaurantName: "المطعم",
+  fees: { taxName: "ق. مضافة", taxRate: 14, serviceName: "كوفير", serviceRate: 12 },
   menu: {mains:[], starters:[], juices:[], desserts:[]},
   orders: {},
-  logs: [] // سجل الحركات
+  logs: [] 
 };
 
 try {
@@ -228,6 +242,7 @@ try {
   if (savedLocal) {
     const parsed = JSON.parse(savedLocal);
     if (parsed.restaurantName) state.restaurantName = parsed.restaurantName;
+    if (parsed.fees) state.fees = parsed.fees;
     if (parsed.menu) state.menu = parsed.menu;
     if (parsed.orders) state.orders = parsed.orders;
     if (parsed.logs) state.logs = parsed.logs;
@@ -298,6 +313,7 @@ async function loadData() {
 
       if (!serverForgot) {
         if (d && d.restaurantName) state.restaurantName = d.restaurantName;
+        if (d && d.fees)   state.fees   = d.fees;
         if (d && d.menu)   state.menu   = d.menu;
         if (d && d.orders) state.orders = d.orders;
         if (d && d.logs)   state.logs   = d.logs;
@@ -321,7 +337,8 @@ async function saveData(mode = 'merge', payload = null, logMsg = null) {
         
         if (latest && !serverForgot) {
           state.restaurantName = latest.restaurantName || state.restaurantName;
-          state.logs = latest.logs || []; // نجيب أحدث سجل من السيرفر
+          state.fees = latest.fees || state.fees;
+          state.logs = latest.logs || []; 
           
           if (mode === 'merge') {
              const myCurrentOrder = state.orders[myName];
@@ -345,17 +362,18 @@ async function saveData(mode = 'merge', payload = null, logMsg = null) {
           else if (mode === 'nuke') {
              state.menu = {mains:[], starters:[], juices:[], desserts:[]};
              state.orders = {};
+             // تصفير الرسوم لمطعم جديد
+             state.fees = { taxName: "ق. مضافة", taxRate: 0, serviceName: "خدمة", serviceRate: 0 };
              localStorage.removeItem('mohamedi_strong_vault');
           }
         }
       }
     }
 
-    // إضافة حركة جديدة للسجل لو موجودة
     if (logMsg) {
       const timeStr = new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
       state.logs.unshift({ time: timeStr, msg: logMsg });
-      if (state.logs.length > 50) state.logs = state.logs.slice(0, 50); // نحتفظ بآخر 50 حركة بس
+      if (state.logs.length > 50) state.logs = state.logs.slice(0, 50); 
     }
 
     await fetch(API + '/data', {
@@ -519,8 +537,15 @@ function renderBill() {
   const names    = Object.keys(state.orders);
   const subs     = names.map(n=>({name:n, sub:pSub(state.orders[n]), order:state.orders[n]}));
   const grandSub = subs.reduce((s,x)=>s+x.sub, 0);
-  const cover    = grandSub * COVER;
-  const tax      = grandSub * TAX;
+  
+  // الحساب الديناميكي للضريبة والخدمة
+  const sRate = (state.fees?.serviceRate || 0) / 100;
+  const tRate = (state.fees?.taxRate || 0) / 100;
+  const sName = state.fees?.serviceName || 'خدمة';
+  const tName = state.fees?.taxName || 'ضريبة';
+
+  const cover    = grandSub * sRate;
+  const tax      = grandSub * tRate;
   const grand    = grandSub + cover + tax;
 
   if (names.length === 0) {
@@ -546,7 +571,7 @@ function renderBill() {
         ${rows}
         ${order?.notes ? `<p style="font-size:12px;color:#555;margin-top:6px;white-space:pre-wrap;line-height:1.6;">📝 ${esc(order.notes)}</p>` : ''}
         <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#555">
-          <span>قبل الضرايب: ${fmt(sub)}</span>
+          <span>قبل الرسوم: ${fmt(sub)}</span>
           <span style="color:#f0ede6;font-weight:700">نصيبه: ${fmt(share)}</span>
         </div>
       </div>`;
@@ -554,13 +579,13 @@ function renderBill() {
 
   document.getElementById('billContent').innerHTML = `
     <div class="grand-box">
-      <div><div class="lbl2">الإجمالي بالضرايب</div><div class="amount">${fmt(grand)}</div></div>
+      <div><div class="lbl2">الإجمالي النهائي</div><div class="amount">${fmt(grand)}</div></div>
       <div style="font-size:40px">💰</div>
     </div>
     <div class="card">
-      <div class="bill-row" style="color:#888"><span>المجموع قبل الضرايب</span><span>${fmt(grandSub)}</span></div>
-      <div class="bill-row" style="color:var(--red)"><span>كوفير 12%</span><span>+ ${fmt(cover)}</span></div>
-      <div class="bill-row" style="color:var(--red)"><span>ضريبة 14%</span><span>+ ${fmt(tax)}</span></div>
+      <div class="bill-row" style="color:#888"><span>المجموع قبل الرسوم</span><span>${fmt(grandSub)}</span></div>
+      ${sRate > 0 ? `<div class="bill-row" style="color:var(--red)"><span>${esc(sName)} ${state.fees.serviceRate}%</span><span>+ ${fmt(cover)}</span></div>` : ''}
+      ${tRate > 0 ? `<div class="bill-row" style="color:var(--red)"><span>${esc(tName)} ${state.fees.taxRate}%</span><span>+ ${fmt(tax)}</span></div>` : ''}
       <div class="bill-row" style="color:var(--gold);font-weight:900"><span>الإجمالي النهائي</span><span>${fmt(grand)}</span></div>
     </div>
     <p style="font-weight:700;font-size:13px;color:#555;margin-bottom:10px">تفصيل كل شخص</p>
@@ -572,7 +597,16 @@ function copyBill() {
   const names    = Object.keys(state.orders);
   const subs     = names.map(n=>({name:n,sub:pSub(state.orders[n]),order:state.orders[n]}));
   const grandSub = subs.reduce((s,x)=>s+x.sub,0);
-  const cover    = grandSub*COVER, tax=grandSub*TAX, grand=grandSub+cover+tax;
+  
+  const sRate = (state.fees?.serviceRate || 0) / 100;
+  const tRate = (state.fees?.taxRate || 0) / 100;
+  const sName = state.fees?.serviceName || 'خدمة';
+  const tName = state.fees?.taxName || 'ضريبة';
+
+  const cover    = grandSub * sRate;
+  const tax      = grandSub * tRate;
+  const grand    = grandSub + cover + tax;
+
   let t = `🍽️ فاتورة ${restName}\n══════════════\n`;
   subs.forEach(({name,sub,order})=>{
     t += `\n👤 ${name}\n`;
@@ -584,7 +618,12 @@ function copyBill() {
     const share = grandSub>0 ? sub+sub/grandSub*(cover+tax) : sub;
     t+=`  نصيبه: ${fmt(share)}\n`;
   });
-  t+=`\n══════════════\nالمجموع: ${fmt(grandSub)}\nكوفير 12%: +${fmt(cover)}\nضريبة 14%: +${fmt(tax)}\n💰 الإجمالي: ${fmt(grand)}`;
+  
+  t+=`\n══════════════\nالمجموع: ${fmt(grandSub)}\n`;
+  if (sRate > 0) t+= `${sName} ${state.fees.serviceRate}%: +${fmt(cover)}\n`;
+  if (tRate > 0) t+= `${tName} ${state.fees.taxRate}%: +${fmt(tax)}\n`;
+  t+= `💰 الإجمالي: ${fmt(grand)}`;
+  
   navigator.clipboard.writeText(t).catch(()=>{});
   setSyncBadge('📋 اتنسخت!');
   setTimeout(()=>setSyncBadge(''),2000);
@@ -639,6 +678,12 @@ function renderAdminItems() {
 document.querySelector('[onclick="show(\'s-admin\')"]').addEventListener('click', ()=>{
   renderAdminTabs();
   renderAdminItems();
+  
+  // تعبئة بيانات الضريبة الحالية
+  document.getElementById('setServiceName').value = state.fees?.serviceName || '';
+  document.getElementById('setServiceRate').value = state.fees?.serviceRate || 0;
+  document.getElementById('setTaxName').value = state.fees?.taxName || '';
+  document.getElementById('setTaxRate').value = state.fees?.taxRate || 0;
 });
 
 function changeRestaurantName() {
@@ -647,6 +692,17 @@ function changeRestaurantName() {
   state.restaurantName = val;
   saveData('change_name', null, `🏷️ تم تغيير اسم المطعم إلى: ${val}`);
   document.getElementById('newRestName').value = '';
+}
+
+function saveFees() {
+  const sName = document.getElementById('setServiceName').value.trim() || 'خدمة';
+  const sRate = parseFloat(document.getElementById('setServiceRate').value) || 0;
+  const tName = document.getElementById('setTaxName').value.trim() || 'ضريبة';
+  const tRate = parseFloat(document.getElementById('setTaxRate').value) || 0;
+
+  state.fees = { taxName: tName, taxRate: tRate, serviceName: sName, serviceRate: sRate };
+  saveData('admin_menu', null, `⚙️ تم تعديل إعدادات الضريبة والخدمة`);
+  alert('تم حفظ إعدادات الرسوم بنجاح!');
 }
 
 function addMenuItem() {
@@ -683,9 +739,11 @@ function nukeEverything() {
   
   state.menu = {mains:[], starters:[], juices:[], desserts:[]};
   state.orders = {};
+  state.fees = { taxName: "ق. مضافة", taxRate: 0, serviceName: "خدمة", serviceRate: 0 };
+  
   renderHome();
   renderAdminItems();
-  saveData('nuke', null, '🚨 تم تصفير الأبلكيشن بالكامل (مسح كل حاجة)');
+  saveData('nuke', null, '🚨 تم تصفير الأبلكيشن بالكامل لمطعم جديد');
   alert('تم تصفير الأبلكيشن بنجاح! جاهز لخروجة جديدة.');
   show('s-home');
 }
