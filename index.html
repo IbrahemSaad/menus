@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
+
 <meta charset="UTF-8">
+
 <title>المحمدي</title>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <style>
 
@@ -11,23 +17,24 @@ background:#0a0a0a;
 color:#f0ede6;
 font-family:sans-serif;
 max-width:440px;
-margin:0 auto;
+margin:auto;
 }
 
-header{
-text-align:center;
-padding:30px;
+.card{
 background:#111;
+padding:14px;
+border-radius:10px;
+margin-bottom:10px;
 }
 
-input,select,textarea{
+input,select{
 width:100%;
 padding:10px;
 margin-top:8px;
-background:#111;
+background:#0a0a0a;
 border:1px solid #333;
 color:white;
-border-radius:8px;
+border-radius:6px;
 }
 
 button{
@@ -43,18 +50,11 @@ background:#c8a96e;
 color:black;
 }
 
-.card{
-background:#111;
-padding:14px;
-border-radius:10px;
-margin-top:10px;
-}
-
 .item{
+padding:8px;
+border-bottom:1px solid #222;
 display:flex;
 justify-content:space-between;
-padding:8px 0;
-border-bottom:1px solid #222;
 }
 
 </style>
@@ -63,60 +63,38 @@ border-bottom:1px solid #222;
 
 <body>
 
-<header>
-<h1>🍽️ المحمدي</h1>
-<p>طلبات الغداء المشتركة</p>
-</header>
+<div id="root"></div>
 
-<div style="padding:16px">
-
-<div class="card">
-
-<p>اسمك</p>
-<input id="name">
-
-<button class="gold" onclick="startOrder()">
-ابدأ الطلب
-</button>
-
-</div>
-
-<div id="menu"></div>
-
-<div id="orders"></div>
-
-<button onclick="showBill()">
-🧾 الفاتورة
-</button>
-
-</div>
-
-<script>
+<script type="text/babel">
 
 const API =
 "https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/"
 
-let orders={}
-let menu={
-mains:[],
-starters:[],
-juices:[],
-desserts:[]
-}
+const COVER=0.12
+const TAX=0.14
+
+function App(){
+
+const [screen,setScreen]=React.useState("home")
+const [orders,setOrders]=React.useState({})
+const [menu,setMenu]=React.useState({mains:[]})
+const [name,setName]=React.useState("")
+const [food,setFood]=React.useState("")
+const [price,setPrice]=React.useState("")
+
+React.useEffect(()=>{load()},[])
 
 async function load(){
 
-const res=await fetch(API)
-const data=await res.json()
+const r=await fetch(API)
+const d=await r.json()
 
-if(data.orders) orders=data.orders
-if(data.menu) menu=data.menu
-
-renderOrders()
+if(d.orders)setOrders(d.orders)
+if(d.menu)setMenu(d.menu)
 
 }
 
-async function save(){
+async function save(o,m){
 
 await fetch(API,{
 method:"POST",
@@ -124,80 +102,202 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-orders:orders,
-menu:menu
+orders:o,
+menu:m
 })
 })
 
-}
-
-function startOrder(){
-
-const name=document.getElementById("name").value.trim()
-
-if(!name) return
-
-const food=prompt("طلبك؟")
-
-orders[name]={main:{name:food,price:100}}
-
-save()
-
-renderOrders()
+setOrders(o)
+setMenu(m)
 
 }
 
-function renderOrders(){
+function addMenu(){
 
-const div=document.getElementById("orders")
+if(!food||!price)return
 
-div.innerHTML=""
+const m={
+...menu,
+mains:[
+...menu.mains,
+{
+id:Date.now(),
+name:food,
+price:parseFloat(price)
+}
+]
+}
 
-for(const n in orders){
+save(orders,m)
 
-div.innerHTML+=`
-<div class="card">
-<div class="item">
-<span>👤 ${n}</span>
-<span>${orders[n].main.name}</span>
-</div>
-</div>
-`
+setFood("")
+setPrice("")
 
 }
 
+function addOrder(item){
+
+const o={
+...orders,
+[name]:item
 }
 
-function showBill(){
+save(o,menu)
+
+}
+
+function bill(){
 
 let text="🍽️ فاتورة المحمدي\n\n"
 
 let total=0
 
-for(const n in orders){
+Object.keys(orders).forEach(k=>{
 
-const price=orders[n].main.price
+const p=orders[k].price
 
-total+=price
+total+=p
 
-text+=`${n} — ${price} ج\n`
+text+=k+" — "+p+" ج\n"
 
-}
+})
 
-const cover=total*0.12
-const tax=total*0.14
+const cover=total*COVER
+const tax=total*TAX
 const grand=total+cover+tax
 
-text+=`\nالمجموع ${total}`
-text+=`\nكوفير ${cover}`
-text+=`\nضريبة ${tax}`
-text+=`\nالإجمالي ${grand}`
+text+="\nالمجموع "+total
+text+="\nكوفير "+cover
+text+="\nضريبة "+tax
+text+="\nالإجمالي "+grand
+
+navigator.clipboard.writeText(text)
 
 alert(text)
 
 }
 
-load()
+return(
+
+<div style={{padding:20}}>
+
+<h2>🍽️ المحمدي</h2>
+
+{screen==="home" && (
+
+<div className="card">
+
+<input
+placeholder="اسمك"
+value={name}
+onChange={e=>setName(e.target.value)}
+/>
+
+<button className="gold" onClick={()=>setScreen("order")}>
+ابدأ الطلب
+</button>
+
+<button onClick={()=>setScreen("admin")}>
+⚙️ إدارة المنيو
+</button>
+
+</div>
+
+)}
+
+{screen==="order" && (
+
+<div>
+
+<div className="card">
+
+<h3>اختر طلبك</h3>
+
+{menu.mains.map(item=>
+
+<div
+className="item"
+key={item.id}
+onClick={()=>addOrder(item)}
+>
+
+<span>{item.name}</span>
+
+<span>{item.price} ج</span>
+
+</div>
+
+)}
+
+</div>
+
+<button onClick={()=>setScreen("home")}>
+رجوع
+</button>
+
+</div>
+
+)}
+
+{screen==="admin" && (
+
+<div className="card">
+
+<h3>إضافة صنف</h3>
+
+<input
+placeholder="اسم الصنف"
+value={food}
+onChange={e=>setFood(e.target.value)}
+/>
+
+<input
+placeholder="السعر"
+value={price}
+onChange={e=>setPrice(e.target.value)}
+/>
+
+<button className="gold" onClick={addMenu}>
+إضافة
+</button>
+
+<button onClick={()=>setScreen("home")}>
+رجوع
+</button>
+
+</div>
+
+)}
+
+<div className="card">
+
+<h3>الطلبات</h3>
+
+{Object.keys(orders).map(k=>
+
+<div key={k} className="item">
+
+<span>👤 {k}</span>
+
+<span>{orders[k].name}</span>
+
+</div>
+
+)}
+
+</div>
+
+<button onClick={bill}>
+🧾 حساب الفاتورة
+</button>
+
+</div>
+
+)
+
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>)
 
 </script>
 
