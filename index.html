@@ -1,305 +1,507 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
-
 <meta charset="UTF-8">
-
-<title>المحمدي</title>
-
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المحمدي 🍽️</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',sans-serif;background:#0a0a0a;color:#f0ede6;min-height:100vh}
+:root{--gold:#c8a96e;--gold2:#9a7030;--bg:#0a0a0a;--card:#111;--border:#1e1a10;--red:#e74c3c}
 
-body{
-background:#0a0a0a;
-color:#f0ede6;
-font-family:sans-serif;
-max-width:440px;
-margin:auto;
-}
+/* ── HEADER ── */
+.hdr{background:#111;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hdr-title{font-weight:900;font-size:17px}
+.back-btn{background:none;border:none;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;padding:4px 8px}
 
-.card{
-background:#111;
-padding:14px;
-border-radius:10px;
-margin-bottom:10px;
-}
+/* ── SCREENS ── */
+.screen{display:none;max-width:440px;margin:0 auto;padding-bottom:80px}
+.screen.active{display:block}
 
-input,select{
-width:100%;
-padding:10px;
-margin-top:8px;
-background:#0a0a0a;
-border:1px solid #333;
-color:white;
-border-radius:6px;
-}
+/* ── HERO ── */
+.hero{background:linear-gradient(160deg,#1c1408,#0a0a0a);padding:44px 24px 32px;text-align:center;border-bottom:1px solid #2a2010}
+.hero-emoji{font-size:56px;margin-bottom:6px}
+.hero h1{font-size:30px;font-weight:900;color:var(--gold);letter-spacing:2px}
+.hero p{margin-top:6px;color:#5a4e32;font-size:13px}
+.sync-badge{margin-top:8px;font-size:12px;color:var(--gold);min-height:18px}
 
-button{
-padding:10px 14px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-margin-top:10px;
-}
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.lbl{font-weight:700;font-size:13px;color:#555;margin-bottom:8px}
 
-.gold{
-background:#c8a96e;
-color:black;
-}
+/* ── INPUT ── */
+input,select,textarea{border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:14px;background:var(--bg);color:#f0ede6;width:100%;box-sizing:border-box}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+textarea{resize:none}
 
-.item{
-padding:8px;
-border-bottom:1px solid #222;
-display:flex;
-justify-content:space-between;
-}
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;cursor:pointer;padding:10px 16px;transition:opacity .15s}
+.btn:active{opacity:.8}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a}
+.btn-outline{background:none;border:1px solid #2a2010;color:var(--gold)}
+.btn-full{width:100%}
+.btn-danger{background:#1a0808;color:var(--red)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-muted{background:none;color:#444;font-size:12px;margin-top:4px}
 
+/* ── PERSON PILL ── */
+.person-pill{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e1a10;font-size:14px}
+
+/* ── TABS ── */
+.cat-tabs{display:flex;background:#111;border-bottom:1px solid var(--border);overflow-x:auto}
+.cat-tab{flex:1;padding:11px 4px;font-family:'Cairo',sans-serif;font-weight:700;font-size:11px;border:none;cursor:pointer;white-space:nowrap;background:none;color:#444;border-bottom:2px solid transparent;transition:all .2s}
+.cat-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── SELECT CARD ── */
+.sel-card{display:flex;align-items:center;padding:13px 14px;border:2px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#111;transition:all .15s}
+.sel-card.selected{border-color:var(--gold);background:#1c1810}
+.sel-card .name{flex:1;font-weight:700;font-size:15px}
+.sel-card.selected .name{color:var(--gold)}
+.sel-card .price{color:var(--gold);font-weight:900;font-size:14px;margin-left:10px}
+.sel-card .check{font-size:16px;margin-left:8px;color:var(--gold)}
+
+/* ── BILL ── */
+.grand-box{background:linear-gradient(135deg,var(--gold),#8a6030);border-radius:16px;padding:20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.grand-box .amount{font-size:28px;font-weight:900;color:#0a0a0a}
+.grand-box .lbl2{font-size:12px;opacity:.8;color:#0a0a0a}
+.bill-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.bill-row:last-child{border-bottom:none}
+.detail-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px dashed var(--border);color:#888}
+
+/* ── ADMIN ── */
+.admin-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+.admin-tab{background:#111;color:#666;border:1px solid var(--border);white-space:nowrap;padding:7px 12px;font-size:12px;border-radius:10px;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer}
+.admin-tab.active{background:var(--gold);color:#0a0a0a}
+.menu-item-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--border)}
+
+/* ── STICKY BOTTOM ── */
+.sticky-bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#0a0a0a;padding:12px 16px;border-top:1px solid var(--border);z-index:99}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 0;color:#333}
+.empty .big{font-size:32px;margin-bottom:8px}
+
+.flex-row{display:flex;gap:8px}
+.hint{color:#444;font-size:12px;text-align:center;margin-bottom:10px}
 </style>
-
 </head>
-
 <body>
 
-<div id="root"></div>
-
-<script type="text/babel">
-
-const API =
-"https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/"
-
-const COVER=0.12
-const TAX=0.14
-
-function App(){
-
-const [screen,setScreen]=React.useState("home")
-const [orders,setOrders]=React.useState({})
-const [menu,setMenu]=React.useState({mains:[]})
-const [name,setName]=React.useState("")
-const [food,setFood]=React.useState("")
-const [price,setPrice]=React.useState("")
-
-React.useEffect(()=>{load()},[])
-
-async function load(){
-
-const r=await fetch(API)
-const d=await r.json()
-
-if(d.orders)setOrders(d.orders)
-if(d.menu)setMenu(d.menu)
-
-}
-
-async function save(o,m){
-
-await fetch(API,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-orders:o,
-menu:m
-})
-})
-
-setOrders(o)
-setMenu(m)
-
-}
-
-function addMenu(){
-
-if(!food||!price)return
-
-const m={
-...menu,
-mains:[
-...menu.mains,
-{
-id:Date.now(),
-name:food,
-price:parseFloat(price)
-}
-]
-}
-
-save(orders,m)
-
-setFood("")
-setPrice("")
-
-}
-
-function addOrder(item){
-
-const o={
-...orders,
-[name]:item
-}
-
-save(o,menu)
-
-}
-
-function bill(){
-
-let text="🍽️ فاتورة المحمدي\n\n"
-
-let total=0
-
-Object.keys(orders).forEach(k=>{
-
-const p=orders[k].price
-
-total+=p
-
-text+=k+" — "+p+" ج\n"
-
-})
-
-const cover=total*COVER
-const tax=total*TAX
-const grand=total+cover+tax
-
-text+="\nالمجموع "+total
-text+="\nكوفير "+cover
-text+="\nضريبة "+tax
-text+="\nالإجمالي "+grand
-
-navigator.clipboard.writeText(text)
-
-alert(text)
-
-}
-
-return(
-
-<div style={{padding:20}}>
-
-<h2>🍽️ المحمدي</h2>
-
-{screen==="home" && (
-
-<div className="card">
-
-<input
-placeholder="اسمك"
-value={name}
-onChange={e=>setName(e.target.value)}
-/>
-
-<button className="gold" onClick={()=>setScreen("order")}>
-ابدأ الطلب
-</button>
-
-<button onClick={()=>setScreen("admin")}>
-⚙️ إدارة المنيو
-</button>
-
+<div id="s-home" class="screen active">
+  <div class="hero">
+    <div class="hero-emoji">🍽️</div>
+    <h1>المحمدي</h1>
+    <p>طلبات الغداء المشتركة</p>
+    <div class="sync-badge" id="syncBadge"></div>
+  </div>
+  <div style="padding:20px 16px">
+    <div class="card">
+      <p class="lbl">اكتب اسمك</p>
+      <input id="nameIn" placeholder="اسمك هنا…" onkeydown="if(event.key==='Enter')goOrder()"/>
+      <button class="btn btn-gold btn-full" style="margin-top:10px;padding:13px;font-size:16px" onclick="goOrder()">سجّل طلبي ←</button>
+    </div>
+    <div class="card" id="whoOrdered" style="display:none">
+      <p class="lbl">طلبوا لحد دلوقتي (<span id="orderedCount">0</span>)</p>
+      <div id="orderedList"></div>
+      <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="show('s-bill');renderBill()">🧾 شوف الفاتورة</button>
+    </div>
+    <div style="text-align:center">
+      <button class="btn btn-muted" onclick="show('s-admin')">⚙️ إدارة المنيو</button>
+    </div>
+  </div>
 </div>
 
-)}
-
-{screen==="order" && (
-
-<div>
-
-<div className="card">
-
-<h3>اختر طلبك</h3>
-
-{menu.mains.map(item=>
-
-<div
-className="item"
-key={item.id}
-onClick={()=>addOrder(item)}
->
-
-<span>{item.name}</span>
-
-<span>{item.price} ج</span>
-
+<div id="s-order" class="screen">
+  <div class="hdr">
+    <button class="back-btn" onclick="show('s-home')">← رجوع</button>
+    <span class="hdr-title" id="orderTitle">طلبك</span>
+    <span id="orderSubtotal" style="color:var(--gold);font-weight:700;font-size:15px">٠ ج</span>
+  </div>
+  <div class="cat-tabs" id="catTabs"></div>
+  <div style="padding:14px 16px 0">
+    <p class="hint" id="catHint"></p>
+    <div id="catItems"></div>
+    <div style="margin-top:16px">
+      <p class="lbl">ملاحظات (اختياري)</p>
+      <textarea id="orderNotes" rows="3" placeholder="مثلاً: اللحمة ميديوم، من غير بصل…"></textarea>
+    </div>
+  </div>
+  <div class="sticky-bottom">
+    <button class="btn btn-gold btn-full" style="font-size:16px;padding:14px" onclick="saveOrder()">✅ احفظ طلبي وشوف الفاتورة</button>
+  </div>
 </div>
 
-)}
-
+<div id="s-bill" class="screen">
+  <div class="hdr">
+    <button class="back-btn" onclick="show('s-home')">← رجوع</button>
+    <span class="hdr-title">الفاتورة الكاملة</span>
+    <button class="btn btn-sm" style="background:#1e1a10;color:var(--gold)" onclick="copyBill()">📋 نسخ</button>
+  </div>
+  <div style="padding:16px" id="billContent"></div>
 </div>
 
-<button onClick={()=>setScreen("home")}>
-رجوع
-</button>
-
+<div id="s-admin" class="screen">
+  <div class="hdr">
+    <button class="back-btn" onclick="show('s-home')">← رجوع</button>
+    <span class="hdr-title">⚙️ إدارة المنيو</span>
+    <span></span>
+  </div>
+  <div style="padding:16px">
+    <div class="card">
+      <p class="lbl">أضف صنف جديد</p>
+      <select id="addCat" style="margin-bottom:8px">
+        <option value="mains">🥩 الوجبة الرئيسية</option>
+        <option value="starters">🥗 المقبلات</option>
+        <option value="juices">🥤 المشروبات</option>
+        <option value="desserts">🍮 الحلويات</option>
+      </select>
+      <div class="flex-row">
+        <input id="addName" placeholder="اسم الصنف" style="flex:2" onkeydown="if(event.key==='Enter')addMenuItem()"/>
+        <input id="addPrice" placeholder="السعر" type="number" style="flex:1" onkeydown="if(event.key==='Enter')addMenuItem()"/>
+        <button class="btn btn-gold" onclick="addMenuItem()">+</button>
+      </div>
+    </div>
+    <div class="admin-tabs" id="adminTabs"></div>
+    <div class="card" id="adminItems"></div>
+    <button class="btn btn-danger btn-full" style="padding:13px;margin-top:8px" onclick="clearAllOrders()">🗑️ امسح كل الطلبات</button>
+  </div>
 </div>
 
-)}
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
+const COVER = 0.12, TAX = 0.14;
 
-{screen==="admin" && (
+const CAT_META = {
+  mains:    {label:'الوجبة',    emoji:'🥩', multi:false},
+  starters: {label:'المقبلات', emoji:'🥗', multi:true},
+  juices:   {label:'مشروبات',  emoji:'🥤', multi:true},
+  desserts: {label:'حلو',      emoji:'🍮', multi:true},
+};
 
-<div className="card">
+let state = {
+  menu: {mains:[], starters:[], juices:[], desserts:[]},
+  orders: {}
+};
+let myName = '';
+let curCat = 'mains';
+// current order being built
+let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
-<h3>إضافة صنف</h3>
-
-<input
-placeholder="اسم الصنف"
-value={food}
-onChange={e=>setFood(e.target.value)}
-/>
-
-<input
-placeholder="السعر"
-value={price}
-onChange={e=>setPrice(e.target.value)}
-/>
-
-<button className="gold" onClick={addMenu}>
-إضافة
-</button>
-
-<button onClick={()=>setScreen("home")}>
-رجوع
-</button>
-
-</div>
-
-)}
-
-<div className="card">
-
-<h3>الطلبات</h3>
-
-{Object.keys(orders).map(k=>
-
-<div key={k} className="item">
-
-<span>👤 {k}</span>
-
-<span>{orders[k].name}</span>
-
-</div>
-
-)}
-
-</div>
-
-<button onClick={bill}>
-🧾 حساب الفاتورة
-</button>
-
-</div>
-
-)
-
+// ══════════════════════════════════════════════════════════════
+// API — using your val.run server as a simple KV store
+// We'll use GET /data to load and POST /data to save
+// ══════════════════════════════════════════════════════════════
+async function loadData() {
+  try {
+    const r = await fetch(API + '/data');
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.menu)   state.menu   = d.menu;
+      if (d && d.orders) state.orders = d.orders;
+    }
+  } catch(e) {}
+  renderHome();
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>)
+async function saveData() {
+  setSyncBadge('⏳ بيتحفظ…');
+  try {
+    await fetch(API + '/data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(state)
+    });
+    setSyncBadge('✓ اتحفظ');
+  } catch(e) {
+    setSyncBadge('⚠️ مش قادر يحفظ — محاولة ثانية…');
+  }
+  setTimeout(()=>setSyncBadge(''), 2500);
+}
 
+function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
+
+// Poll every 8s
+setInterval(async ()=>{
+  await loadData();
+  if(document.getElementById('s-bill').classList.contains('active')) renderBill();
+}, 8000);
+
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ══════════════════════════════════════════════════════════════
+// HOME
+// ══════════════════════════════════════════════════════════════
+function renderHome() {
+  const names = Object.keys(state.orders);
+  const list  = document.getElementById('orderedList');
+  const wrap  = document.getElementById('whoOrdered');
+  document.getElementById('orderedCount').textContent = names.length;
+  if (names.length === 0) { wrap.style.display='none'; return; }
+  wrap.style.display = 'block';
+  list.innerHTML = names.map(n=>`
+    <div class="person-pill">
+      <span>👤 ${esc(n)}</span>
+      <span style="color:var(--gold);font-weight:700">${fmt(pSub(state.orders[n]))}</span>
+    </div>`).join('');
+}
+
+function goOrder() {
+  const v = document.getElementById('nameIn').value.trim();
+  if (!v) return;
+  myName = v;
+  // Load existing order if any
+  const ex = state.orders[myName] || {};
+  curOrder = {
+    main:     ex.main     || null,
+    starters: ex.starters || [],
+    juices:   ex.juices   || [],
+    desserts: ex.desserts || [],
+    notes:    ex.notes    || ''
+  };
+  document.getElementById('orderTitle').textContent = 'طلب ' + myName;
+  document.getElementById('orderNotes').value = curOrder.notes;
+  curCat = 'mains';
+  renderCatTabs();
+  renderCatItems();
+  updateSubtotal();
+  show('s-order');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ORDER
+// ══════════════════════════════════════════════════════════════
+function renderCatTabs() {
+  document.getElementById('catTabs').innerHTML = Object.entries(CAT_META).map(([k,m])=>`
+    <button class="cat-tab ${k===curCat?'active':''}" onclick="switchCat('${k}')">${m.emoji} ${m.label}</button>
+  `).join('');
+}
+
+function switchCat(k) {
+  curCat = k;
+  renderCatTabs();
+  renderCatItems();
+}
+
+function renderCatItems() {
+  const meta  = CAT_META[curCat];
+  const items = state.menu[curCat] || [];
+  document.getElementById('catHint').textContent = meta.multi ? 'اختار أكتر من واحد' : 'اختار واحدة بس';
+
+  if (items.length === 0) {
+    document.getElementById('catItems').innerHTML = `<div class="empty"><div class="big">🍽️</div><p style="font-size:13px">مفيش أصناف — اطلب من المدير يضيف</p></div>`;
+    return;
+  }
+
+  const sel = curCat === 'mains'
+    ? (curOrder.main ? [curOrder.main.id] : [])
+    : (curOrder[curCat] || []).map(x=>x.id);
+
+  document.getElementById('catItems').innerHTML = items.map(item => {
+    const isSel = sel.includes(item.id);
+    return `<div class="sel-card ${isSel?'selected':''}" onclick="toggleItem('${item.id}')">
+      <div class="name">${esc(item.name)}</div>
+      <span class="price">${fmt(item.price)}</span>
+      ${isSel?'<span class="check">✓</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function toggleItem(id) {
+  const item = state.menu[curCat].find(x=>x.id===id);
+  if (!item) return;
+  if (curCat === 'mains') {
+    curOrder.main = (curOrder.main?.id === id) ? null : item;
+  } else {
+    const list = curOrder[curCat];
+    const idx  = list.findIndex(x=>x.id===id);
+    if (idx >= 0) list.splice(idx,1); else list.push(item);
+  }
+  renderCatItems();
+  updateSubtotal();
+}
+
+function updateSubtotal() {
+  document.getElementById('orderSubtotal').textContent = fmt(pSub(curOrder));
+}
+
+function saveOrder() {
+  curOrder.notes = document.getElementById('orderNotes').value;
+  state.orders[myName] = { ...curOrder };
+  saveData();
+  renderBill();
+  show('s-bill');
+}
+
+// ══════════════════════════════════════════════════════════════
+// BILL
+// ══════════════════════════════════════════════════════════════
+function renderBill() {
+  const names    = Object.keys(state.orders);
+  const subs     = names.map(n=>({name:n, sub:pSub(state.orders[n]), order:state.orders[n]}));
+  const grandSub = subs.reduce((s,x)=>s+x.sub, 0);
+  const cover    = grandSub * COVER;
+  const tax      = grandSub * TAX;
+  const grand    = grandSub + cover + tax;
+
+  if (names.length === 0) {
+    document.getElementById('billContent').innerHTML = `<div class="empty"><div class="big">🧾</div><p>مفيش طلبات لسه</p></div>`;
+    return;
+  }
+
+  const personCards = subs.map(({name,sub,order})=>{
+    const share = grandSub > 0 ? sub + sub/grandSub*(cover+tax) : sub;
+    const rows  = [
+      order?.main ? `<div class="detail-row"><span>🥩 ${esc(order.main.name)}</span><span>${fmt(order.main.price)}</span></div>` : '',
+      ...(order?.starters||[]).map(x=>`<div class="detail-row"><span>🥗 ${esc(x.name)}</span><span>${fmt(x.price)}</span></div>`),
+      ...(order?.juices||[]).map(x=>`<div class="detail-row"><span>🥤 ${esc(x.name)}</span><span>${fmt(x.price)}</span></div>`),
+      ...(order?.desserts||[]).map(x=>`<div class="detail-row"><span>🍮 ${esc(x.name)}</span><span>${fmt(x.price)}</span></div>`),
+    ].join('');
+    return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <span style="font-weight:900;font-size:16px">👤 ${esc(name)}</span>
+          <span style="font-weight:900;color:var(--gold);font-size:16px">${fmt(share)}</span>
+        </div>
+        ${rows}
+        ${order?.notes?`<p style="font-size:12px;color:#555;margin-top:6px">📝 ${esc(order.notes)}</p>`:''}
+        <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#555">
+          <span>قبل الضرايب: ${fmt(sub)}</span>
+          <span style="color:#f0ede6;font-weight:700">نصيبه: ${fmt(share)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('billContent').innerHTML = `
+    <div class="grand-box">
+      <div><div class="lbl2">الإجمالي بالضرايب</div><div class="amount">${fmt(grand)}</div></div>
+      <div style="font-size:40px">💰</div>
+    </div>
+    <div class="card">
+      <div class="bill-row" style="color:#888"><span>المجموع قبل الضرايب</span><span>${fmt(grandSub)}</span></div>
+      <div class="bill-row" style="color:var(--red)"><span>كوفير 12%</span><span>+ ${fmt(cover)}</span></div>
+      <div class="bill-row" style="color:var(--red)"><span>ضريبة 14%</span><span>+ ${fmt(tax)}</span></div>
+      <div class="bill-row" style="color:var(--gold);font-weight:900"><span>الإجمالي النهائي</span><span>${fmt(grand)}</span></div>
+    </div>
+    <p style="font-weight:700;font-size:13px;color:#555;margin-bottom:10px">تفصيل كل شخص</p>
+    ${personCards}`;
+}
+
+function copyBill() {
+  const names    = Object.keys(state.orders);
+  const subs     = names.map(n=>({name:n,sub:pSub(state.orders[n]),order:state.orders[n]}));
+  const grandSub = subs.reduce((s,x)=>s+x.sub,0);
+  const cover    = grandSub*COVER, tax=grandSub*TAX, grand=grandSub+cover+tax;
+  let t = '🍽️ فاتورة المحمدي\n══════════════\n';
+  subs.forEach(({name,sub,order})=>{
+    t += `\n👤 ${name}\n`;
+    if(order?.main) t+=`  🥩 ${order.main.name} — ${fmt(order.main.price)}\n`;
+    (order?.starters||[]).forEach(x=>t+=`  🥗 ${x.name} — ${fmt(x.price)}\n`);
+    (order?.juices  ||[]).forEach(x=>t+=`  🥤 ${x.name} — ${fmt(x.price)}\n`);
+    (order?.desserts||[]).forEach(x=>t+=`  🍮 ${x.name} — ${fmt(x.price)}\n`);
+    if(order?.notes) t+=`  📝 ${order.notes}\n`;
+    const share = grandSub>0 ? sub+sub/grandSub*(cover+tax) : sub;
+    t+=`  نصيبه: ${fmt(share)}\n`;
+  });
+  t+=`\n══════════════\nالمجموع: ${fmt(grandSub)}\nكوفير 12%: +${fmt(cover)}\nضريبة 14%: +${fmt(tax)}\n💰 الإجمالي: ${fmt(grand)}`;
+  navigator.clipboard.writeText(t).catch(()=>{});
+  setSyncBadge('📋 اتنسخت!');
+  setTimeout(()=>setSyncBadge(''),2000);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════════════════════════
+let adminCat = 'mains';
+
+function renderAdminTabs() {
+  document.getElementById('adminTabs').innerHTML = Object.entries(CAT_META).map(([k,m])=>`
+    <button class="admin-tab ${k===adminCat?'active':''}" onclick="switchAdminCat('${k}')">${m.emoji} ${m.label}</button>
+  `).join('');
+}
+
+function switchAdminCat(k) { adminCat=k; renderAdminTabs(); renderAdminItems(); }
+
+function renderAdminItems() {
+  const items = state.menu[adminCat] || [];
+  document.getElementById('adminItems').innerHTML = items.length === 0
+    ? `<p style="color:#444;text-align:center;padding:20px 0;font-size:13px">مفيش أصناف هنا لسه</p>`
+    : items.map(item=>`
+        <div class="menu-item-row">
+          <span style="font-size:14px">${esc(item.name)}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--gold);font-weight:700;font-size:13px">${fmt(item.price)}</span>
+            <button class="btn btn-danger btn-sm" onclick="delMenuItem('${item.id}')">حذف</button>
+          </div>
+        </div>`).join('');
+}
+
+// Show admin screen and init tabs
+document.querySelector('[onclick="show(\'s-admin\')"]').addEventListener('click', ()=>{
+  renderAdminTabs();
+  renderAdminItems();
+});
+
+function addMenuItem() {
+  const cat   = document.getElementById('addCat').value;
+  const name  = document.getElementById('addName').value.trim();
+  const price = parseFloat(document.getElementById('addPrice').value);
+  if (!name || isNaN(price) || price<=0) return;
+  const id = cat[0] + Date.now();
+  state.menu[cat].push({id, name, price});
+  document.getElementById('addName').value  = '';
+  document.getElementById('addPrice').value = '';
+  adminCat = cat;
+  renderAdminTabs();
+  renderAdminItems();
+  saveData();
+}
+
+function delMenuItem(id) {
+  state.menu[adminCat] = state.menu[adminCat].filter(x=>x.id!==id);
+  renderAdminItems();
+  saveData();
+}
+
+function clearAllOrders() {
+  if (!confirm('هتمسح كل الطلبات، مؤكد؟')) return;
+  state.orders = {};
+  renderHome();
+  saveData();
+}
+
+// ══════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════
+function pSub(o={}) {
+  let s=0;
+  if(o.main) s+=o.main.price;
+  ['starters','juices','desserts'].forEach(k=>(o[k]||[]).forEach(x=>s+=x.price));
+  return s;
+}
+
+function fmt(n) {
+  return n.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' ج';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+loadData();
 </script>
-
 </body>
 </html>
