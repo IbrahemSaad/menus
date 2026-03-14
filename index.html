@@ -205,12 +205,18 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (NPOINT + SMART MERGE)
+// STATE & SHARED DB (RESTFUL-API + SMART MERGE)
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://api.npoint.io/';
+const DB_BASE = 'https://api.restful-api.dev/objects';
 const COVER = 0.12, TAX = 0.14;
 
 let sharedDbId = localStorage.getItem('mohamedi_db_id');
+
+// تنظيف الكاش من أكواد السيرفرات القديمة اللي باظت (أكواد السيرفر ده بتبقى طويلة)
+if (sharedDbId && sharedDbId.length < 15) {
+  localStorage.removeItem('mohamedi_db_id');
+  sharedDbId = null;
+}
 
 const CAT_META = {
   mains:    {label:'الوجبة',    emoji:'🥩', multi:false},
@@ -227,27 +233,26 @@ let myName = '';
 let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
-// تنظيف لو الكود القديم مسجل Error مكان الكود
-if (sharedDbId && sharedDbId.includes(' ')) {
-  localStorage.removeItem('mohamedi_db_id');
-  sharedDbId = null;
-}
-
 // ══════════════════════════════════════════════════════════════
 // SETUP & SYNC
 // ══════════════════════════════════════════════════════════════
 async function createGroup(btn) {
   const oldText = btn.innerHTML;
-  btn.innerHTML = '⏳ جاري الإنشاء...';
+  btn.innerHTML = '⏳ ثواني بجهز المجموعة...';
   btn.disabled = true;
   try {
     const res = await fetch(DB_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body: JSON.stringify({
+        name: "mohamedi-group",
+        data: state
+      })
     });
-    const data = await res.json();
-    sharedDbId = data.id;
+    const result = await res.json();
+    if (!result.id) throw new Error("No ID");
+
+    sharedDbId = result.id;
     localStorage.setItem('mohamedi_db_id', sharedDbId);
     
     show('s-home');
@@ -286,38 +291,61 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    // جلب أحدث البيانات مع منع الكاش
-    const r = await fetch(`${DB_BASE}${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
-      const d = await r.json();
-      if (d && d.menu)   state.menu   = d.menu;
-      if (d && d.orders) state.orders = d.orders;
+      const json = await r.json();
+      if (json && json.data) {
+        const d = json.data;
+        if (d.menu)   state.menu   = d.menu;
+        if (d.orders) state.orders = d.orders;
+      }
+    } else if (r.status === 404) {
+      alert("المجموعة دي مش موجودة أو اتمسحت، هنعمل مجموعة جديدة.");
+      leaveGroup();
+      return;
     }
   } catch(e) { console.log(e); }
   renderHome();
 }
 
-async function saveData() {
+// دالة الحفظ مع الدمج الذكي اللي بتمنع مسح الداتا
+async function saveData(forceOverwrite = false) {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    // 1. الدمج الذكي (عشان طلبك ميمسحش طلب زميلك اللي لسه متسجل)
-    const r = await fetch(`${DB_BASE}${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
-    if (r.ok) {
-      const latest = await r.json();
-      if(latest && latest.orders) {
-        state.orders = { ...latest.orders, ...state.orders };
-      }
-      if(latest && latest.menu) {
-        state.menu = latest.menu;
+    if (!forceOverwrite) {
+      // بنقرأ طلبات زمايلك الأول من السيرفر
+      const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
+      if (r.ok) {
+        const json = await r.json();
+        if (json && json.data) {
+          const latest = json.data;
+          
+          if (latest.orders) {
+            // بنحفظ طلبك إنت حالاً في متغير
+            const myCurrentOrder = state.orders[myName]; 
+            // بنحط طلبات كل الناس التانية
+            state.orders = latest.orders; 
+            // بنضيف طلبك فوقهم عشان ميمسحش طلباتهم
+            if (myName && myCurrentOrder) {
+              state.orders[myName] = myCurrentOrder; 
+            }
+          }
+          if (latest.menu) {
+            state.menu = latest.menu;
+          }
+        }
       }
     }
 
-    // 2. إرسال الداتا المجمعة بالكامل للسيرفر
-    await fetch(`${DB_BASE}${sharedDbId}`, {
-      method: 'POST',
+    // بنبعت الداتا المدموجة الكاملة للسيرفر
+    await fetch(`${DB_BASE}/${sharedDbId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body: JSON.stringify({
+        name: "mohamedi-group",
+        data: state
+      })
     });
     
     setSyncBadge('✓ اتحفظ بنجاح');
@@ -330,15 +358,15 @@ async function saveData() {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// تحديث لايف مستمر كل 6 ثواني
+// تحديث لايف كل 5 ثواني
 setInterval(async ()=>{
   if(sharedDbId) {
     await loadData();
     if(document.getElementById('s-bill').classList.contains('active')) renderBill();
   }
-}, 6000);
+}, 5000);
 
-// جلب البيانات فوراً لما المستخدم يرجع للمتصفح (يفتح الشاشة تاني)
+// تحديث فوري لما تفتح الشاشة من واتساب
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && sharedDbId) {
     loadData();
@@ -453,7 +481,7 @@ function updateSubtotal() {
 function saveOrder() {
   curOrder.notes = document.getElementById('orderNotes').value;
   state.orders[myName] = { ...curOrder };
-  saveData();
+  saveData(false); // False عشان تعمل دمج ومتمسحش طلبات الباقيين
   renderBill();
   show('s-bill');
 }
@@ -578,20 +606,20 @@ function addMenuItem() {
   adminCat = cat;
   renderAdminTabs();
   renderAdminItems();
-  saveData();
+  saveData(true); // True عشان الإدارة تمسح الداتا لو لزم الأمر وتحدث المنيو
 }
 
 function delMenuItem(id) {
   state.menu[adminCat] = state.menu[adminCat].filter(x=>x.id!==id);
   renderAdminItems();
-  saveData();
+  saveData(true);
 }
 
 function clearAllOrders() {
   if (!confirm('هتمسح كل الطلبات، مؤكد؟')) return;
   state.orders = {};
   renderHome();
-  saveData();
+  saveData(true); // True عشان ده أمر مسح إجباري من الإدمن
 }
 
 // ══════════════════════════════════════════════════════════════
