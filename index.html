@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>طلبات الغداء</title>
+</head>
+
+<body style="font-family:sans-serif;max-width:420px;margin:40px auto">
+
+<h2>🍽️ طلبات الغداء</h2>
+
+<input id="name" placeholder="اسمك"><br><br>
+<input id="food" placeholder="طلبك"><br><br>
+
+<button onclick="addOrder()">إضافة الطلب</button>
+<button onclick="clearOrders()">مسح الكل</button>
+
+<hr>
+
+<div id="orders"></div>
+
+<script>
+
+const API = "https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/";
+
+async function loadOrders(){
+
+  const res = await fetch(API);
+  const data = await res.json();
+
+  const div = document.getElementById("orders");
+  div.innerHTML="";
+
+  for(const name in data){
+    div.innerHTML += `<div>👤 ${name} — ${data[name]}</div>`;
+  }
+
+}
+
+async function addOrder(){
+
+  const name = document.getElementById("name").value;
+  const food = document.getElementById("food").value;
+
+  const res = await fetch(API);
+  const data = await res.json();
+
+  data[name] = food;
+
+  await fetch(API,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify(data)
+  });
+
+  loadOrders();
+
+}
+
+async function clearOrders(){
+
+  await fetch(API,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({})
+  });
+
+  loadOrders();
+
+}
+
+loadOrders();
+
+</script>
+
+</body>
+</html>
