@@ -205,9 +205,9 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (Stable Server)
+// STATE & SHARED DB (KVDB - Open, reliable, no IP lock)
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://json.extendsclass.com/bin';
+const DB_BASE = 'https://kvdb.io';
 const COVER = 0.12, TAX = 0.14;
 
 let sharedDbId = localStorage.getItem('mohamedi_db_id');
@@ -235,14 +235,20 @@ async function createGroup(btn) {
   btn.innerHTML = '⏳ جاري الإنشاء...';
   btn.disabled = true;
   try {
-    const res = await fetch(DB_BASE, {
+    // 1. Create a new open bucket
+    const res = await fetch(DB_BASE, { method: 'POST' });
+    const bucketId = (await res.text()).trim();
+    if (!bucketId) throw new Error('Failed to get bucket ID');
+    
+    sharedDbId = bucketId;
+    localStorage.setItem('mohamedi_db_id', sharedDbId);
+    
+    // 2. Save the initial empty state to the new bucket
+    await fetch(`${DB_BASE}/${sharedDbId}/app_state`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(state)
     });
-    const data = await res.json();
-    sharedDbId = data.id;
-    localStorage.setItem('mohamedi_db_id', sharedDbId);
+
     show('s-home');
     loadData();
   } catch(e) {
@@ -279,10 +285,9 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    // ضفنا ?t= وقت عشواي عشان نمنع المتصفح يخزن القديم
-    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, {
-      method: 'GET',
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    // ضفنا t= وقت عشواي عشان نكسر كاش المتصفح ويجيب اللايف دايماً
+    const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, {
+      cache: 'no-store'
     });
     if (r.ok) {
       const d = await r.json();
@@ -297,14 +302,28 @@ async function saveData() {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    await fetch(`${DB_BASE}/${sharedDbId}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
+    // الدمج الذكي: بنجيب الداتا الجديدة الأول عشان لو زميلك سجل طلب منمسحوش!
+    const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) {
+      const latest = await r.json();
+      // بندمج طلبات الناس اللي على السيرفر مع الطلب بتاعنا قبل الحفظ
+      if(latest && latest.orders) {
+        state.orders = { ...latest.orders, ...state.orders };
+      }
+      if(latest && latest.menu) {
+        state.menu = latest.menu;
+      }
+    }
+
+    // نحفظ بقى الداتا المدموجة الكاملة
+    await fetch(`${DB_BASE}/${sharedDbId}/app_state`, {
+      method: 'POST',
       body: JSON.stringify(state)
     });
     setSyncBadge('✓ اتحفظ للكل');
+    renderHome(); // بنعمل تحديث للشاشة عشان لو فيه طلب جديد لزميلك يظهر
   } catch(e) {
-    setSyncBadge('⚠️ مش قادر يحفظ — محاولة ثانية…');
+    setSyncBadge('⚠️ مش قادر يحفظ');
   }
   setTimeout(()=>setSyncBadge(''), 2500);
 }
