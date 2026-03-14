@@ -205,9 +205,9 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (KVDB - FIXED)
+// STATE & SHARED DB (JSONBlob - Stable & No IP lock)
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://kvdb.io';
+const DB_BASE = 'https://jsonblob.com/api/jsonBlob';
 const COVER = 0.12, TAX = 0.14;
 
 let sharedDbId = localStorage.getItem('mohamedi_db_id');
@@ -227,41 +227,36 @@ let myName = '';
 let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
+// تنظيف لو الكود القديم فيه مشاكل أو أخطاء
+if (sharedDbId && (sharedDbId.includes(' ') || sharedDbId.length < 10)) {
+  localStorage.removeItem('mohamedi_db_id');
+  sharedDbId = null;
+}
+
 // ══════════════════════════════════════════════════════════════
 // SETUP & SYNC
 // ══════════════════════════════════════════════════════════════
 async function createGroup(btn) {
   const oldText = btn.innerHTML;
-  btn.innerHTML = '⏳ جاري الإنشاء...';
+  btn.innerHTML = '⏳ ثواني بجهز المجموعة...';
   btn.disabled = true;
   try {
-    // 1. Create a new open bucket with a dummy email to bypass the requirement
-    const res = await fetch(DB_BASE, { 
+    const res = await fetch(DB_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'email=mohamedi_app@example.com' 
-    });
-    
-    const bucketId = (await res.text()).trim();
-    
-    // Safety check: if it's an error message (contains spaces), throw error
-    if (!res.ok || bucketId.includes(' ')) {
-      throw new Error(bucketId);
-    }
-    
-    sharedDbId = bucketId;
-    localStorage.setItem('mohamedi_db_id', sharedDbId);
-    
-    // 2. Save the initial empty state to the new bucket
-    await fetch(`${DB_BASE}/${sharedDbId}/app_state`, {
-      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(state)
     });
-
+    
+    // JSONBlob بيبعت الكود في الهيدر Location
+    const loc = res.headers.get('Location');
+    if (!loc) throw new Error('السيرفر مرجعش كود');
+    
+    sharedDbId = loc.split('/').pop();
+    localStorage.setItem('mohamedi_db_id', sharedDbId);
+    
     show('s-home');
     loadData();
   } catch(e) {
-    console.error(e);
     alert('حصلت مشكلة في الاتصال، جرب تاني.');
     btn.innerHTML = oldText;
     btn.disabled = false;
@@ -295,15 +290,18 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, {
-      cache: 'no-store'
-    });
+    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
       const d = await r.json();
       if (d && d.menu)   state.menu   = d.menu;
       if (d && d.orders) state.orders = d.orders;
+    } else if (r.status === 404) {
+      // لو المجموعة اتمسحت أو الكود غلط
+      alert("الكود ده مش موجود أو اتمسح، اعمل مجموعة جديدة.");
+      leaveGroup();
+      return;
     }
-  } catch(e) {}
+  } catch(e) { console.log("Load error", e); }
   renderHome();
 }
 
@@ -311,8 +309,8 @@ async function saveData() {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    // الدمج الذكي للطلبات
-    const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, { cache: 'no-store' });
+    // 1. الدمج الذكي للطلبات: بنجيب آخر داتا عشان محدش يمسح طلب التاني!
+    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
       const latest = await r.json();
       if(latest && latest.orders) {
@@ -323,11 +321,13 @@ async function saveData() {
       }
     }
 
-    await fetch(`${DB_BASE}/${sharedDbId}/app_state`, {
-      method: 'POST',
+    // 2. بنحفظ الداتا المجمعة كلها
+    await fetch(`${DB_BASE}/${sharedDbId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(state)
     });
-    setSyncBadge('✓ اتحفظ للكل');
+    setSyncBadge('✓ اتحفظ بنجاح');
     renderHome(); 
   } catch(e) {
     setSyncBadge('⚠️ مش قادر يحفظ');
@@ -337,13 +337,20 @@ async function saveData() {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// Live polling every 8s
+// تحديث لايف كل 5 ثواني
 setInterval(async ()=>{
   if(sharedDbId) {
     await loadData();
     if(document.getElementById('s-bill').classList.contains('active')) renderBill();
   }
-}, 8000);
+}, 5000);
+
+// تحديث فوري أول ما تفتح الشاشة من واتساب أو غيره
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && sharedDbId) {
+    loadData();
+  }
+});
 
 // ══════════════════════════════════════════════════════════════
 // NAVIGATION
@@ -609,12 +616,6 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // ══════════════════════════════════════════════════════════════
 // INIT APP
 // ══════════════════════════════════════════════════════════════
-// لو الكود اللي متخزن بايظ (فيه مسافات أو كلمة email)، امسحه
-if (sharedDbId && sharedDbId.includes(' ')) {
-  localStorage.removeItem('mohamedi_db_id');
-  sharedDbId = null;
-}
-
 if (sharedDbId) {
   show('s-home');
   loadData();
