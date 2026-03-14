@@ -78,17 +78,40 @@ textarea{resize:none}
 /* ── STICKY BOTTOM ── */
 .sticky-bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#0a0a0a;padding:12px 16px;border-top:1px solid var(--border);z-index:99}
 
-/* ── EMPTY ── */
+/* ── EMPTY & MISC ── */
 .empty{text-align:center;padding:40px 0;color:#333}
 .empty .big{font-size:32px;margin-bottom:8px}
-
 .flex-row{display:flex;gap:8px}
 .hint{color:#444;font-size:12px;text-align:center;margin-bottom:10px}
+.code-box{display:flex;gap:8px;margin-top:4px}
+.code-box input{flex:1;text-align:center;font-weight:900;color:var(--gold);letter-spacing:1px;font-size:16px}
 </style>
 </head>
 <body>
 
-<div id="s-home" class="screen active">
+<div id="s-setup" class="screen">
+  <div class="hero">
+    <div class="hero-emoji">👋</div>
+    <h1>أهلاً بيك</h1>
+    <p>عشان الطلبات تكون مشتركة وتسمّع عند الكل</p>
+  </div>
+  <div style="padding:20px 16px">
+    <div class="card">
+      <p class="lbl" style="text-align:center">لو إنت أول واحد يطلب:</p>
+      <button class="btn btn-gold btn-full" style="padding:14px;font-size:16px" onclick="createGroup(this)">✨ إنشاء مجموعة جديدة</button>
+    </div>
+    
+    <div style="text-align:center; margin: 16px 0; color: #555; font-size:14px; font-weight:bold">أو</div>
+    
+    <div class="card">
+      <p class="lbl" style="text-align:center">لو زميلك عمل مجموعة وبعتلك الكود:</p>
+      <input id="joinCode" placeholder="الصق الكود هنا..." style="text-align:center; margin-bottom: 10px; font-weight:bold" />
+      <button class="btn btn-outline btn-full" style="padding:14px" onclick="joinGroup()">🤝 انضمام للمجموعة</button>
+    </div>
+  </div>
+</div>
+
+<div id="s-home" class="screen">
   <div class="hero">
     <div class="hero-emoji">🍽️</div>
     <h1>المحمدي</h1>
@@ -96,6 +119,18 @@ textarea{resize:none}
     <div class="sync-badge" id="syncBadge"></div>
   </div>
   <div style="padding:20px 16px">
+    
+    <div class="card" style="background:#1c1810; border-color:var(--gold2)">
+      <p class="lbl" style="color:var(--gold)">كود المجموعة (ابعته لزمايلك يدخلوا بيه)</p>
+      <div class="code-box">
+        <input readonly id="displayCode" />
+        <button class="btn btn-gold" onclick="copyShareCode()">📋 نسخ</button>
+      </div>
+      <div style="text-align:center; margin-top:8px">
+         <button class="btn btn-muted" onclick="leaveGroup()">🚪 خروج من المجموعة</button>
+      </div>
+    </div>
+
     <div class="card">
       <p class="lbl">اكتب اسمك</p>
       <input id="nameIn" placeholder="اسمك هنا…" onkeydown="if(event.key==='Enter')goOrder()"/>
@@ -170,10 +205,12 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE
+// STATE & SHARED DB
 // ══════════════════════════════════════════════════════════════
-const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
+const DB_BASE = 'https://api.npoint.io/';
 const COVER = 0.12, TAX = 0.14;
+
+let sharedDbId = localStorage.getItem('mohamedi_db_id');
 
 const CAT_META = {
   mains:    {label:'الوجبة',    emoji:'🥩', multi:false},
@@ -188,16 +225,64 @@ let state = {
 };
 let myName = '';
 let curCat = 'mains';
-// current order being built
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
 // ══════════════════════════════════════════════════════════════
-// API — using your val.run server as a simple KV store
-// We'll use GET /data to load and POST /data to save
+// SETUP & SYNC
 // ══════════════════════════════════════════════════════════════
-async function loadData() {
+async function createGroup(btn) {
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ جاري الإنشاء...';
+  btn.disabled = true;
   try {
-    const r = await fetch(API + '/data');
+    const res = await fetch(DB_BASE, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        menu: {mains:[], starters:[], juices:[], desserts:[]},
+        orders: {}
+      })
+    });
+    const data = await res.json();
+    sharedDbId = data.id;
+    localStorage.setItem('mohamedi_db_id', sharedDbId);
+    show('s-home');
+    loadData();
+  } catch(e) {
+    alert('حصلت مشكلة في الاتصال، اتأكد من النت وجرب تاني.');
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+}
+
+function joinGroup() {
+  const code = document.getElementById('joinCode').value.trim();
+  if (!code) return;
+  sharedDbId = code;
+  localStorage.setItem('mohamedi_db_id', sharedDbId);
+  show('s-home');
+  loadData();
+}
+
+function copyShareCode() {
+  navigator.clipboard.writeText(sharedDbId).catch(()=>{});
+  setSyncBadge('📋 الكود اتنسخ!');
+  setTimeout(()=>setSyncBadge(''), 2000);
+}
+
+function leaveGroup() {
+  if(!confirm('متأكد إنك عايز تخرج وتفصل عن الطلبات دي؟')) return;
+  localStorage.removeItem('mohamedi_db_id');
+  sharedDbId = null;
+  state = { menu: {mains:[], starters:[], juices:[], desserts:[]}, orders: {} };
+  document.getElementById('joinCode').value = '';
+  show('s-setup');
+}
+
+async function loadData() {
+  if (!sharedDbId) return;
+  try {
+    const r = await fetch(DB_BASE + sharedDbId);
     if (r.ok) {
       const d = await r.json();
       if (d && d.menu)   state.menu   = d.menu;
@@ -208,14 +293,15 @@ async function loadData() {
 }
 
 async function saveData() {
-  setSyncBadge('⏳ بيتحفظ…');
+  if (!sharedDbId) return;
+  setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    await fetch(API + '/data', {
+    await fetch(DB_BASE + sharedDbId, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(state)
     });
-    setSyncBadge('✓ اتحفظ');
+    setSyncBadge('✓ اتحفظ للكل');
   } catch(e) {
     setSyncBadge('⚠️ مش قادر يحفظ — محاولة ثانية…');
   }
@@ -224,10 +310,12 @@ async function saveData() {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// Poll every 8s
+// Live polling every 8s
 setInterval(async ()=>{
-  await loadData();
-  if(document.getElementById('s-bill').classList.contains('active')) renderBill();
+  if(sharedDbId) {
+    await loadData();
+    if(document.getElementById('s-bill').classList.contains('active')) renderBill();
+  }
 }, 8000);
 
 // ══════════════════════════════════════════════════════════════
@@ -243,6 +331,7 @@ function show(id) {
 // HOME
 // ══════════════════════════════════════════════════════════════
 function renderHome() {
+  if(sharedDbId) document.getElementById('displayCode').value = sharedDbId;
   const names = Object.keys(state.orders);
   const list  = document.getElementById('orderedList');
   const wrap  = document.getElementById('whoOrdered');
@@ -260,7 +349,6 @@ function goOrder() {
   const v = document.getElementById('nameIn').value.trim();
   if (!v) return;
   myName = v;
-  // Load existing order if any
   const ex = state.orders[myName] || {};
   curOrder = {
     main:     ex.main     || null,
@@ -446,7 +534,6 @@ function renderAdminItems() {
         </div>`).join('');
 }
 
-// Show admin screen and init tabs
 document.querySelector('[onclick="show(\'s-admin\')"]').addEventListener('click', ()=>{
   renderAdminTabs();
   renderAdminItems();
@@ -489,19 +576,18 @@ function pSub(o={}) {
   ['starters','juices','desserts'].forEach(k=>(o[k]||[]).forEach(x=>s+=x.price));
   return s;
 }
-
-function fmt(n) {
-  return n.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' ج';
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function fmt(n) { return n.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' ج'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ══════════════════════════════════════════════════════════════
-// INIT
+// INIT APP
 // ══════════════════════════════════════════════════════════════
-loadData();
+if (sharedDbId) {
+  show('s-home');
+  loadData();
+} else {
+  show('s-setup');
+}
 </script>
 </body>
 </html>
