@@ -205,9 +205,9 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (JSONBlob - Stable & No IP lock)
+// STATE & SHARED DB (NPOINT + SMART MERGE)
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://jsonblob.com/api/jsonBlob';
+const DB_BASE = 'https://api.npoint.io/';
 const COVER = 0.12, TAX = 0.14;
 
 let sharedDbId = localStorage.getItem('mohamedi_db_id');
@@ -227,8 +227,8 @@ let myName = '';
 let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
-// تنظيف لو الكود القديم فيه مشاكل أو أخطاء
-if (sharedDbId && (sharedDbId.includes(' ') || sharedDbId.length < 10)) {
+// تنظيف لو الكود القديم مسجل Error مكان الكود
+if (sharedDbId && sharedDbId.includes(' ')) {
   localStorage.removeItem('mohamedi_db_id');
   sharedDbId = null;
 }
@@ -238,20 +238,16 @@ if (sharedDbId && (sharedDbId.includes(' ') || sharedDbId.length < 10)) {
 // ══════════════════════════════════════════════════════════════
 async function createGroup(btn) {
   const oldText = btn.innerHTML;
-  btn.innerHTML = '⏳ ثواني بجهز المجموعة...';
+  btn.innerHTML = '⏳ جاري الإنشاء...';
   btn.disabled = true;
   try {
     const res = await fetch(DB_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state)
     });
-    
-    // JSONBlob بيبعت الكود في الهيدر Location
-    const loc = res.headers.get('Location');
-    if (!loc) throw new Error('السيرفر مرجعش كود');
-    
-    sharedDbId = loc.split('/').pop();
+    const data = await res.json();
+    sharedDbId = data.id;
     localStorage.setItem('mohamedi_db_id', sharedDbId);
     
     show('s-home');
@@ -290,18 +286,14 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
+    // جلب أحدث البيانات مع منع الكاش
+    const r = await fetch(`${DB_BASE}${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
       const d = await r.json();
       if (d && d.menu)   state.menu   = d.menu;
       if (d && d.orders) state.orders = d.orders;
-    } else if (r.status === 404) {
-      // لو المجموعة اتمسحت أو الكود غلط
-      alert("الكود ده مش موجود أو اتمسح، اعمل مجموعة جديدة.");
-      leaveGroup();
-      return;
     }
-  } catch(e) { console.log("Load error", e); }
+  } catch(e) { console.log(e); }
   renderHome();
 }
 
@@ -309,8 +301,8 @@ async function saveData() {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    // 1. الدمج الذكي للطلبات: بنجيب آخر داتا عشان محدش يمسح طلب التاني!
-    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
+    // 1. الدمج الذكي (عشان طلبك ميمسحش طلب زميلك اللي لسه متسجل)
+    const r = await fetch(`${DB_BASE}${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
       const latest = await r.json();
       if(latest && latest.orders) {
@@ -321,12 +313,13 @@ async function saveData() {
       }
     }
 
-    // 2. بنحفظ الداتا المجمعة كلها
-    await fetch(`${DB_BASE}/${sharedDbId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    // 2. إرسال الداتا المجمعة بالكامل للسيرفر
+    await fetch(`${DB_BASE}${sharedDbId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state)
     });
+    
     setSyncBadge('✓ اتحفظ بنجاح');
     renderHome(); 
   } catch(e) {
@@ -337,15 +330,15 @@ async function saveData() {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// تحديث لايف كل 5 ثواني
+// تحديث لايف مستمر كل 6 ثواني
 setInterval(async ()=>{
   if(sharedDbId) {
     await loadData();
     if(document.getElementById('s-bill').classList.contains('active')) renderBill();
   }
-}, 5000);
+}, 6000);
 
-// تحديث فوري أول ما تفتح الشاشة من واتساب أو غيره
+// جلب البيانات فوراً لما المستخدم يرجع للمتصفح (يفتح الشاشة تاني)
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && sharedDbId) {
     loadData();
