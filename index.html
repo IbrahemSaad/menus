@@ -78,40 +78,17 @@ textarea{resize:none}
 /* ── STICKY BOTTOM ── */
 .sticky-bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#0a0a0a;padding:12px 16px;border-top:1px solid var(--border);z-index:99}
 
-/* ── EMPTY & MISC ── */
+/* ── EMPTY ── */
 .empty{text-align:center;padding:40px 0;color:#333}
 .empty .big{font-size:32px;margin-bottom:8px}
+
 .flex-row{display:flex;gap:8px}
 .hint{color:#444;font-size:12px;text-align:center;margin-bottom:10px}
-.code-box{display:flex;gap:8px;margin-top:4px}
-.code-box input{flex:1;text-align:center;font-weight:900;color:var(--gold);letter-spacing:1px;font-size:16px}
 </style>
 </head>
 <body>
 
-<div id="s-setup" class="screen">
-  <div class="hero">
-    <div class="hero-emoji">👋</div>
-    <h1>أهلاً بيك</h1>
-    <p>عشان الطلبات تكون مشتركة وتسمّع عند الكل</p>
-  </div>
-  <div style="padding:20px 16px">
-    <div class="card">
-      <p class="lbl" style="text-align:center">لو إنت أول واحد يطلب:</p>
-      <button class="btn btn-gold btn-full" style="padding:14px;font-size:16px" onclick="createGroup(this)">✨ إنشاء مجموعة جديدة</button>
-    </div>
-    
-    <div style="text-align:center; margin: 16px 0; color: #555; font-size:14px; font-weight:bold">أو</div>
-    
-    <div class="card">
-      <p class="lbl" style="text-align:center">لو زميلك عمل مجموعة وبعتلك الكود:</p>
-      <input id="joinCode" placeholder="الصق الكود هنا..." style="text-align:center; margin-bottom: 10px; font-weight:bold" />
-      <button class="btn btn-outline btn-full" style="padding:14px" onclick="joinGroup()">🤝 انضمام للمجموعة</button>
-    </div>
-  </div>
-</div>
-
-<div id="s-home" class="screen">
+<div id="s-home" class="screen active">
   <div class="hero">
     <div class="hero-emoji">🍽️</div>
     <h1>المحمدي</h1>
@@ -119,18 +96,6 @@ textarea{resize:none}
     <div class="sync-badge" id="syncBadge"></div>
   </div>
   <div style="padding:20px 16px">
-    
-    <div class="card" style="background:#1c1810; border-color:var(--gold2)">
-      <p class="lbl" style="color:var(--gold)">كود المجموعة (ابعته لزمايلك يدخلوا بيه)</p>
-      <div class="code-box">
-        <input readonly id="displayCode" />
-        <button class="btn btn-gold" onclick="copyShareCode()">📋 نسخ</button>
-      </div>
-      <div style="text-align:center; margin-top:8px">
-         <button class="btn btn-muted" onclick="leaveGroup()">🚪 خروج من المجموعة</button>
-      </div>
-    </div>
-
     <div class="card">
       <p class="lbl">اكتب اسمك</p>
       <input id="nameIn" placeholder="اسمك هنا…" onkeydown="if(event.key==='Enter')goOrder()"/>
@@ -205,18 +170,11 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (RESTFUL-API + SMART MERGE)
+// STATE
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://api.restful-api.dev/objects';
+// ده السيرفر بتاعك إنت اللي شغال بيرفكت ومفيهوش أي مشاكل
+const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
 const COVER = 0.12, TAX = 0.14;
-
-let sharedDbId = localStorage.getItem('mohamedi_db_id');
-
-// تنظيف الكاش من أكواد السيرفرات القديمة اللي باظت (أكواد السيرفر ده بتبقى طويلة)
-if (sharedDbId && sharedDbId.length < 15) {
-  localStorage.removeItem('mohamedi_db_id');
-  sharedDbId = null;
-}
 
 const CAT_META = {
   mains:    {label:'الوجبة',    emoji:'🥩', multi:false},
@@ -234,122 +192,54 @@ let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
 // ══════════════════════════════════════════════════════════════
-// SETUP & SYNC
+// API & SMART MERGE (عشان محدش يمسح طلب التاني)
 // ══════════════════════════════════════════════════════════════
-async function createGroup(btn) {
-  const oldText = btn.innerHTML;
-  btn.innerHTML = '⏳ ثواني بجهز المجموعة...';
-  btn.disabled = true;
-  try {
-    const res = await fetch(DB_BASE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: "mohamedi-group",
-        data: state
-      })
-    });
-    const result = await res.json();
-    if (!result.id) throw new Error("No ID");
-
-    sharedDbId = result.id;
-    localStorage.setItem('mohamedi_db_id', sharedDbId);
-    
-    show('s-home');
-    loadData();
-  } catch(e) {
-    alert('حصلت مشكلة في الاتصال، جرب تاني.');
-    btn.innerHTML = oldText;
-    btn.disabled = false;
-  }
-}
-
-function joinGroup() {
-  const code = document.getElementById('joinCode').value.trim();
-  if (!code) return;
-  sharedDbId = code;
-  localStorage.setItem('mohamedi_db_id', sharedDbId);
-  show('s-home');
-  loadData();
-}
-
-function copyShareCode() {
-  navigator.clipboard.writeText(sharedDbId).catch(()=>{});
-  setSyncBadge('📋 الكود اتنسخ!');
-  setTimeout(()=>setSyncBadge(''), 2000);
-}
-
-function leaveGroup() {
-  if(!confirm('متأكد إنك عايز تخرج وتفصل عن الطلبات دي؟')) return;
-  localStorage.removeItem('mohamedi_db_id');
-  sharedDbId = null;
-  state = { menu: {mains:[], starters:[], juices:[], desserts:[]}, orders: {} };
-  document.getElementById('joinCode').value = '';
-  show('s-setup');
-}
-
 async function loadData() {
-  if (!sharedDbId) return;
   try {
-    const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) {
-      const json = await r.json();
-      if (json && json.data) {
-        const d = json.data;
-        if (d.menu)   state.menu   = d.menu;
-        if (d.orders) state.orders = d.orders;
-      }
-    } else if (r.status === 404) {
-      alert("المجموعة دي مش موجودة أو اتمسحت، هنعمل مجموعة جديدة.");
-      leaveGroup();
-      return;
+      const d = await r.json();
+      if (d && d.menu)   state.menu   = d.menu;
+      if (d && d.orders) state.orders = d.orders;
     }
-  } catch(e) { console.log(e); }
+  } catch(e) {}
   renderHome();
 }
 
-// دالة الحفظ مع الدمج الذكي اللي بتمنع مسح الداتا
-async function saveData(forceOverwrite = false) {
-  if (!sharedDbId) return;
-  setSyncBadge('⏳ بيتحفظ للكل…');
+// دالة الحفظ بذكاء: بتقرأ السيرفر الأول، تحط طلبك مع طلبات زمايلك، وبعدين تحفظ
+async function saveData(mode = 'merge') {
+  setSyncBadge('⏳ بيتحفظ…');
   try {
-    if (!forceOverwrite) {
-      // بنقرأ طلبات زمايلك الأول من السيرفر
-      const r = await fetch(`${DB_BASE}/${sharedDbId}?t=${Date.now()}`, { cache: 'no-store' });
-      if (r.ok) {
-        const json = await r.json();
-        if (json && json.data) {
-          const latest = json.data;
-          
-          if (latest.orders) {
-            // بنحفظ طلبك إنت حالاً في متغير
-            const myCurrentOrder = state.orders[myName]; 
-            // بنحط طلبات كل الناس التانية
-            state.orders = latest.orders; 
-            // بنضيف طلبك فوقهم عشان ميمسحش طلباتهم
-            if (myName && myCurrentOrder) {
-              state.orders[myName] = myCurrentOrder; 
-            }
-          }
-          if (latest.menu) {
-            state.menu = latest.menu;
-          }
+    const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      const latest = await r.json();
+      if (latest) {
+        if (mode === 'merge') {
+           // حفظ الطلب: بنحط طلبات الناس التانية، ونضيف فوقهم طلبك إنت
+           const myCurrentOrder = state.orders[myName];
+           state.orders = { ...(latest.orders || {}) };
+           if (myName && myCurrentOrder) state.orders[myName] = myCurrentOrder;
+           state.menu = latest.menu || state.menu;
+        }
+        else if (mode === 'admin_menu') {
+           // الإدارة بتعدل المنيو: نحافظ على طلبات الناس ونسجل المنيو بس
+           state.orders = latest.orders || state.orders;
+        }
+        else if (mode === 'clear_orders') {
+           // مسح كل الطلبات: نحافظ على المنيو ونصُفّر الطلبات
+           state.menu = latest.menu || state.menu;
+           state.orders = {};
         }
       }
     }
 
-    // بنبعت الداتا المدموجة الكاملة للسيرفر
-    await fetch(`${DB_BASE}/${sharedDbId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: "mohamedi-group",
-        data: state
-      })
+    await fetch(API + '/data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(state)
     });
-    
-    setSyncBadge('✓ اتحفظ بنجاح');
-    renderHome(); 
+    setSyncBadge('✓ اتحفظ');
+    renderHome();
   } catch(e) {
     setSyncBadge('⚠️ مش قادر يحفظ');
   }
@@ -358,17 +248,15 @@ async function saveData(forceOverwrite = false) {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// تحديث لايف كل 5 ثواني
+// تحديث لايف كل 6 ثواني
 setInterval(async ()=>{
-  if(sharedDbId) {
-    await loadData();
-    if(document.getElementById('s-bill').classList.contains('active')) renderBill();
-  }
-}, 5000);
+  await loadData();
+  if(document.getElementById('s-bill').classList.contains('active')) renderBill();
+}, 6000);
 
-// تحديث فوري لما تفتح الشاشة من واتساب
+// تحديث فوري أول ما تفتح الشاشة تاني
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && sharedDbId) {
+  if (document.visibilityState === "visible") {
     loadData();
   }
 });
@@ -386,7 +274,6 @@ function show(id) {
 // HOME
 // ══════════════════════════════════════════════════════════════
 function renderHome() {
-  if(sharedDbId) document.getElementById('displayCode').value = sharedDbId;
   const names = Object.keys(state.orders);
   const list  = document.getElementById('orderedList');
   const wrap  = document.getElementById('whoOrdered');
@@ -481,7 +368,7 @@ function updateSubtotal() {
 function saveOrder() {
   curOrder.notes = document.getElementById('orderNotes').value;
   state.orders[myName] = { ...curOrder };
-  saveData(false); // False عشان تعمل دمج ومتمسحش طلبات الباقيين
+  saveData('merge'); // بيحفظ بالدمج الذكي
   renderBill();
   show('s-bill');
 }
@@ -606,20 +493,20 @@ function addMenuItem() {
   adminCat = cat;
   renderAdminTabs();
   renderAdminItems();
-  saveData(true); // True عشان الإدارة تمسح الداتا لو لزم الأمر وتحدث المنيو
+  saveData('admin_menu'); 
 }
 
 function delMenuItem(id) {
   state.menu[adminCat] = state.menu[adminCat].filter(x=>x.id!==id);
   renderAdminItems();
-  saveData(true);
+  saveData('admin_menu');
 }
 
 function clearAllOrders() {
   if (!confirm('هتمسح كل الطلبات، مؤكد؟')) return;
   state.orders = {};
   renderHome();
-  saveData(true); // True عشان ده أمر مسح إجباري من الإدمن
+  saveData('clear_orders');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -631,18 +518,19 @@ function pSub(o={}) {
   ['starters','juices','desserts'].forEach(k=>(o[k]||[]).forEach(x=>s+=x.price));
   return s;
 }
-function fmt(n) { return n.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' ج'; }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmt(n) {
+  return n.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' ج';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 // ══════════════════════════════════════════════════════════════
-// INIT APP
+// INIT
 // ══════════════════════════════════════════════════════════════
-if (sharedDbId) {
-  show('s-home');
-  loadData();
-} else {
-  show('s-setup');
-}
+loadData();
 </script>
 </body>
 </html>
