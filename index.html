@@ -205,7 +205,7 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB (KVDB - Open, reliable, no IP lock)
+// STATE & SHARED DB (KVDB - FIXED)
 // ══════════════════════════════════════════════════════════════
 const DB_BASE = 'https://kvdb.io';
 const COVER = 0.12, TAX = 0.14;
@@ -235,10 +235,19 @@ async function createGroup(btn) {
   btn.innerHTML = '⏳ جاري الإنشاء...';
   btn.disabled = true;
   try {
-    // 1. Create a new open bucket
-    const res = await fetch(DB_BASE, { method: 'POST' });
+    // 1. Create a new open bucket with a dummy email to bypass the requirement
+    const res = await fetch(DB_BASE, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'email=mohamedi_app@example.com' 
+    });
+    
     const bucketId = (await res.text()).trim();
-    if (!bucketId) throw new Error('Failed to get bucket ID');
+    
+    // Safety check: if it's an error message (contains spaces), throw error
+    if (!res.ok || bucketId.includes(' ')) {
+      throw new Error(bucketId);
+    }
     
     sharedDbId = bucketId;
     localStorage.setItem('mohamedi_db_id', sharedDbId);
@@ -252,7 +261,8 @@ async function createGroup(btn) {
     show('s-home');
     loadData();
   } catch(e) {
-    alert('حصلت مشكلة في الاتصال، اتأكد من النت وجرب تاني.');
+    console.error(e);
+    alert('حصلت مشكلة في الاتصال، جرب تاني.');
     btn.innerHTML = oldText;
     btn.disabled = false;
   }
@@ -285,7 +295,6 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    // ضفنا t= وقت عشواي عشان نكسر كاش المتصفح ويجيب اللايف دايماً
     const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, {
       cache: 'no-store'
     });
@@ -302,11 +311,10 @@ async function saveData() {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    // الدمج الذكي: بنجيب الداتا الجديدة الأول عشان لو زميلك سجل طلب منمسحوش!
+    // الدمج الذكي للطلبات
     const r = await fetch(`${DB_BASE}/${sharedDbId}/app_state?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
       const latest = await r.json();
-      // بندمج طلبات الناس اللي على السيرفر مع الطلب بتاعنا قبل الحفظ
       if(latest && latest.orders) {
         state.orders = { ...latest.orders, ...state.orders };
       }
@@ -315,13 +323,12 @@ async function saveData() {
       }
     }
 
-    // نحفظ بقى الداتا المدموجة الكاملة
     await fetch(`${DB_BASE}/${sharedDbId}/app_state`, {
       method: 'POST',
       body: JSON.stringify(state)
     });
     setSyncBadge('✓ اتحفظ للكل');
-    renderHome(); // بنعمل تحديث للشاشة عشان لو فيه طلب جديد لزميلك يظهر
+    renderHome(); 
   } catch(e) {
     setSyncBadge('⚠️ مش قادر يحفظ');
   }
@@ -602,6 +609,12 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // ══════════════════════════════════════════════════════════════
 // INIT APP
 // ══════════════════════════════════════════════════════════════
+// لو الكود اللي متخزن بايظ (فيه مسافات أو كلمة email)، امسحه
+if (sharedDbId && sharedDbId.includes(' ')) {
+  localStorage.removeItem('mohamedi_db_id');
+  sharedDbId = null;
+}
+
 if (sharedDbId) {
   show('s-home');
   loadData();
