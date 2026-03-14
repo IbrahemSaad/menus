@@ -48,7 +48,7 @@ textarea{resize:none}
 /* ── PERSON PILL ── */
 .person-pill{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e1a10;font-size:14px}
 
-/* ── TABS ── */
+/* ── T पायल ── */
 .cat-tabs{display:flex;background:#111;border-bottom:1px solid var(--border);overflow-x:auto}
 .cat-tab{flex:1;padding:11px 4px;font-family:'Cairo',sans-serif;font-weight:700;font-size:11px;border:none;cursor:pointer;white-space:nowrap;background:none;color:#444;border-bottom:2px solid transparent;transition:all .2s}
 .cat-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
@@ -172,7 +172,6 @@ textarea{resize:none}
 // ══════════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════════
-// ده السيرفر بتاعك إنت اللي شغال بيرفكت ومفيهوش أي مشاكل
 const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
 const COVER = 0.12, TAX = 0.14;
 
@@ -192,13 +191,33 @@ let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
 // ══════════════════════════════════════════════════════════════
-// API & SMART MERGE (عشان محدش يمسح طلب التاني)
+// API & AMNESIA PROTECTION (مضاد فقدان الذاكرة للسيرفر)
 // ══════════════════════════════════════════════════════════════
 async function loadData() {
   try {
     const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) {
       const d = await r.json();
+      
+      // نختبر هل السيرفر عمل ريستارت ونسي الداتا؟ (المنيو فاضي والطلبات فاضية)
+      const serverForgot = (!d.menu || !d.menu.mains || d.menu.mains.length === 0) && (!d.orders || Object.keys(d.orders).length === 0);
+      
+      // نختبر هل إحنا معانا داتا متسجلة في المتصفح؟
+      const weHaveData = (state.menu.mains && state.menu.mains.length > 0) || Object.keys(state.orders).length > 0;
+      
+      // لو السيرفر نسي وإحنا معانا الداتا، نرفعها فوراً للسيرفر كإننا بنعمل باك أب
+      if (serverForgot && weHaveData) {
+        setSyncBadge('🔄 السيرفر عمل ريستارت، جاري استعادة البيانات...');
+        await fetch(API + '/data', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(state)
+        });
+        setTimeout(()=>setSyncBadge(''), 2500);
+        return; // منكملش الكود عشان مانمسحش الشاشة
+      }
+
+      // لو السيرفر فيه داتا سليمة، نعرضها
       if (d && d.menu)   state.menu   = d.menu;
       if (d && d.orders) state.orders = d.orders;
     }
@@ -206,31 +225,32 @@ async function loadData() {
   renderHome();
 }
 
-// دالة الحفظ بذكاء: بتقرأ السيرفر الأول، تحط طلبك مع طلبات زمايلك، وبعدين تحفظ
 async function saveData(mode = 'merge') {
   setSyncBadge('⏳ بيتحفظ…');
   try {
     const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) {
       const latest = await r.json();
-      if (latest) {
+      
+      // تأمين: لو السيرفر كان لسه عامل ريستارت واحنا بنسجل، مندمجش مع الفاضي
+      const serverForgot = (!latest.menu || !latest.menu.mains || latest.menu.mains.length === 0) && (!latest.orders || Object.keys(latest.orders).length === 0);
+      
+      if (latest && !serverForgot) {
         if (mode === 'merge') {
-           // حفظ الطلب: بنحط طلبات الناس التانية، ونضيف فوقهم طلبك إنت
            const myCurrentOrder = state.orders[myName];
            state.orders = { ...(latest.orders || {}) };
            if (myName && myCurrentOrder) state.orders[myName] = myCurrentOrder;
            state.menu = latest.menu || state.menu;
         }
         else if (mode === 'admin_menu') {
-           // الإدارة بتعدل المنيو: نحافظ على طلبات الناس ونسجل المنيو بس
            state.orders = latest.orders || state.orders;
         }
         else if (mode === 'clear_orders') {
-           // مسح كل الطلبات: نحافظ على المنيو ونصُفّر الطلبات
            state.menu = latest.menu || state.menu;
            state.orders = {};
         }
       }
+      // لو serverForgot طلع True، المتصفح هيرفع الداتا كاملة للسيرفر بدون دمج عشان يرجعه للحياة
     }
 
     await fetch(API + '/data', {
@@ -248,7 +268,7 @@ async function saveData(mode = 'merge') {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// تحديث لايف كل 6 ثواني
+// التحديث التلقائي المستمر
 setInterval(async ()=>{
   await loadData();
   if(document.getElementById('s-bill').classList.contains('active')) renderBill();
