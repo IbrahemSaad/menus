@@ -1,61 +1,60 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-
 <meta charset="UTF-8">
-<title>طلبات الغداء</title>
+<title>المحمدي</title>
 
 <style>
 
 body{
-background:#0b0b0b;
-color:white;
+background:#0a0a0a;
+color:#f0ede6;
 font-family:sans-serif;
-max-width:420px;
-margin:40px auto;
+max-width:440px;
+margin:0 auto;
+}
+
+header{
 text-align:center;
+padding:30px;
+background:#111;
 }
 
-h2{
-margin-bottom:30px;
-}
-
-input{
+input,select,textarea{
 width:100%;
-padding:12px;
-margin-bottom:12px;
-background:#222;
-border:none;
+padding:10px;
+margin-top:8px;
+background:#111;
+border:1px solid #333;
 color:white;
-border-radius:6px;
+border-radius:8px;
 }
 
 button{
-padding:10px 16px;
+padding:10px 14px;
 border:none;
-border-radius:6px;
-margin:5px;
+border-radius:8px;
 cursor:pointer;
+margin-top:10px;
 }
 
-.add{
-background:#3c8d40;
-color:white;
+.gold{
+background:#c8a96e;
+color:black;
 }
 
-.clear{
-background:#555;
-color:white;
+.card{
+background:#111;
+padding:14px;
+border-radius:10px;
+margin-top:10px;
 }
 
-#orders{
-margin-top:20px;
-text-align:right;
-}
-
-.order{
+.item{
+display:flex;
+justify-content:space-between;
 padding:8px 0;
-border-bottom:1px solid #333;
+border-bottom:1px solid #222;
 }
 
 </style>
@@ -64,88 +63,141 @@ border-bottom:1px solid #333;
 
 <body>
 
-<h2>🍽️ طلبات الغداء</h2>
+<header>
+<h1>🍽️ المحمدي</h1>
+<p>طلبات الغداء المشتركة</p>
+</header>
 
-<input id="name" placeholder="اسمك">
+<div style="padding:16px">
 
-<input id="food" placeholder="طلبك">
+<div class="card">
 
-<button class="add" onclick="addOrder()">إضافة الطلب</button>
-<button class="clear" onclick="clearOrders()">مسح الكل</button>
+<p>اسمك</p>
+<input id="name">
+
+<button class="gold" onclick="startOrder()">
+ابدأ الطلب
+</button>
+
+</div>
+
+<div id="menu"></div>
 
 <div id="orders"></div>
+
+<button onclick="showBill()">
+🧾 الفاتورة
+</button>
+
+</div>
 
 <script>
 
 const API =
-"https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/";
+"https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run/"
 
+let orders={}
+let menu={
+mains:[],
+starters:[],
+juices:[],
+desserts:[]
+}
 
-async function loadOrders(){
+async function load(){
 
-const res = await fetch(API);
-const data = await res.json();
+const res=await fetch(API)
+const data=await res.json()
 
-const div = document.getElementById("orders");
+if(data.orders) orders=data.orders
+if(data.menu) menu=data.menu
 
-div.innerHTML="";
+renderOrders()
 
-for(const name in data){
+}
 
-div.innerHTML += `
-<div class="order">
-👤 ${name} — ${data[name]}
+async function save(){
+
+await fetch(API,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+orders:orders,
+menu:menu
+})
+})
+
+}
+
+function startOrder(){
+
+const name=document.getElementById("name").value.trim()
+
+if(!name) return
+
+const food=prompt("طلبك؟")
+
+orders[name]={main:{name:food,price:100}}
+
+save()
+
+renderOrders()
+
+}
+
+function renderOrders(){
+
+const div=document.getElementById("orders")
+
+div.innerHTML=""
+
+for(const n in orders){
+
+div.innerHTML+=`
+<div class="card">
+<div class="item">
+<span>👤 ${n}</span>
+<span>${orders[n].main.name}</span>
 </div>
-`;
+</div>
+`
 
 }
 
 }
 
+function showBill(){
 
-async function addOrder(){
+let text="🍽️ فاتورة المحمدي\n\n"
 
-const name = document.getElementById("name").value.trim();
-const food = document.getElementById("food").value.trim();
+let total=0
 
-if(!name || !food) return;
+for(const n in orders){
 
-const res = await fetch(API);
-const data = await res.json();
+const price=orders[n].main.price
 
-data[name] = food;
+total+=price
 
-await fetch(API,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify(data)
-});
-
-document.getElementById("name").value="";
-document.getElementById("food").value="";
-
-loadOrders();
+text+=`${n} — ${price} ج\n`
 
 }
 
+const cover=total*0.12
+const tax=total*0.14
+const grand=total+cover+tax
 
-async function clearOrders(){
+text+=`\nالمجموع ${total}`
+text+=`\nكوفير ${cover}`
+text+=`\nضريبة ${tax}`
+text+=`\nالإجمالي ${grand}`
 
-await fetch(API,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({})
-});
-
-loadOrders();
+alert(text)
 
 }
 
-loadOrders();
+load()
 
 </script>
 
