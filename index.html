@@ -205,9 +205,9 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & SHARED DB
+// STATE & SHARED DB (Updated to restful-api.dev)
 // ══════════════════════════════════════════════════════════════
-const DB_BASE = 'https://api.npoint.io/';
+const DB_BASE = 'https://api.restful-api.dev/objects';
 const COVER = 0.12, TAX = 0.14;
 
 let sharedDbId = localStorage.getItem('mohamedi_db_id');
@@ -239,16 +239,20 @@ async function createGroup(btn) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        menu: {mains:[], starters:[], juices:[], desserts:[]},
-        orders: {}
+        name: "mohamedi-group",
+        data: {
+          menu: {mains:[], starters:[], juices:[], desserts:[]},
+          orders: {}
+        }
       })
     });
-    const data = await res.json();
-    sharedDbId = data.id;
+    const result = await res.json();
+    sharedDbId = result.id;
     localStorage.setItem('mohamedi_db_id', sharedDbId);
     show('s-home');
     loadData();
   } catch(e) {
+    console.error(e);
     alert('حصلت مشكلة في الاتصال، اتأكد من النت وجرب تاني.');
     btn.innerHTML = oldText;
     btn.disabled = false;
@@ -282,9 +286,10 @@ function leaveGroup() {
 async function loadData() {
   if (!sharedDbId) return;
   try {
-    const r = await fetch(DB_BASE + sharedDbId);
+    const r = await fetch(`${DB_BASE}/${sharedDbId}`);
     if (r.ok) {
-      const d = await r.json();
+      const json = await r.json();
+      const d = json.data;
       if (d && d.menu)   state.menu   = d.menu;
       if (d && d.orders) state.orders = d.orders;
     }
@@ -296,10 +301,13 @@ async function saveData() {
   if (!sharedDbId) return;
   setSyncBadge('⏳ بيتحفظ للكل…');
   try {
-    await fetch(DB_BASE + sharedDbId, {
-      method: 'POST',
+    await fetch(`${DB_BASE}/${sharedDbId}`, {
+      method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(state)
+      body: JSON.stringify({
+        name: "mohamedi-group",
+        data: state
+      })
     });
     setSyncBadge('✓ اتحفظ للكل');
   } catch(e) {
