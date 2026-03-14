@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>المحمدي 🍽️</title>
+<title id="pageTitle">المحمدي 🍽️</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -91,7 +91,7 @@ textarea{resize:none}
 <div id="s-home" class="screen active">
   <div class="hero">
     <div class="hero-emoji">🍽️</div>
-    <h1>المحمدي</h1>
+    <h1 id="mainTitle">المحمدي</h1>
     <p>طلبات الغداء المشتركة</p>
     <div class="sync-badge" id="syncBadge"></div>
   </div>
@@ -148,6 +148,21 @@ textarea{resize:none}
     <span></span>
   </div>
   <div style="padding:16px">
+    
+    <div class="card" style="border-color:var(--gold2); background:#1c1810">
+      <p class="lbl" style="color:var(--gold); text-align:center;">الداتا طارت بالغلط؟</p>
+      <button class="btn btn-gold btn-full" style="padding:12px;" onclick="restoreVault()">🛡️ استرجاع من خزنة الطوارئ</button>
+      <p style="font-size:11px; color:#aaa; text-align:center; margin-top:6px;">الزرار ده بيرجع آخر فاتورة كاملة متسجلة على موبايلك</p>
+    </div>
+
+    <div class="card">
+      <p class="lbl">تغيير اسم المطعم (لخروجة جديدة)</p>
+      <div class="flex-row">
+        <input id="newRestName" placeholder="اسم المطعم الجديد..." style="flex:2" onkeydown="if(event.key==='Enter')changeRestaurantName()"/>
+        <button class="btn btn-gold" onclick="changeRestaurantName()">تغيير</button>
+      </div>
+    </div>
+
     <div class="card">
       <p class="lbl">أضف صنف جديد</p>
       <select id="addCat" style="margin-bottom:8px">
@@ -164,13 +179,15 @@ textarea{resize:none}
     </div>
     <div class="admin-tabs" id="adminTabs"></div>
     <div class="card" id="adminItems"></div>
-    <button class="btn btn-danger btn-full" style="padding:13px;margin-top:8px" onclick="clearAllOrders()">🗑️ امسح كل الطلبات</button>
+    
+    <button class="btn btn-outline btn-full" style="padding:13px;margin-top:8px" onclick="clearAllOrders()">🗑️ امسح كل الطلبات فقط</button>
+    <button class="btn btn-danger btn-full" style="padding:13px;margin-top:8px; background:#2a0a0a;" onclick="nukeEverything()">🚨 تصفير بالكامل (مسح المنيو والطلبات)</button>
   </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE & LOCAL BACKUP (النسخة الاحتياطية المنيعة)
+// STATE & LOCAL BACKUP
 // ══════════════════════════════════════════════════════════════
 const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
 const COVER = 0.12, TAX = 0.14;
@@ -183,23 +200,48 @@ const CAT_META = {
 };
 
 let state = {
+  restaurantName: "المحمدي",
   menu: {mains:[], starters:[], juices:[], desserts:[]},
   orders: {}
 };
 
-// استرجاع الداتا من ذاكرة الموبايل نفسه في حالة ان المتصفح اتقفل
 try {
   const savedLocal = localStorage.getItem('mohamedi_backup');
   if (savedLocal) {
     const parsed = JSON.parse(savedLocal);
+    if (parsed.restaurantName) state.restaurantName = parsed.restaurantName;
     if (parsed.menu) state.menu = parsed.menu;
     if (parsed.orders) state.orders = parsed.orders;
   }
 } catch(e) {}
 
-// دالة لحفظ الداتا في الموبايل
+function updateVault() {
+  if (Object.keys(state.orders).length > 0) {
+    localStorage.setItem('mohamedi_strong_vault', JSON.stringify(state));
+  }
+}
+
 function updateLocalBackup() {
   localStorage.setItem('mohamedi_backup', JSON.stringify(state));
+}
+
+function restoreVault() {
+  const savedVault = localStorage.getItem('mohamedi_strong_vault');
+  if (savedVault) {
+    const parsed = JSON.parse(savedVault);
+    if (parsed.orders && Object.keys(parsed.orders).length > 0) {
+      if(confirm('لقينا نسخة محفوظة، متأكد إنك عايز تسترجعها وتمسح أي حاجة موجودة دلوقتي؟')) {
+        state = parsed;
+        saveData('force_restore'); 
+        alert('تم الاسترجاع بنجاح!');
+        show('s-home');
+      }
+    } else {
+      alert('للأسف مفيش نسخة احتياطية مليانة متسجلة على موبايلك.');
+    }
+  } else {
+    alert('للأسف مفيش نسخة احتياطية متسجلة على موبايلك.');
+  }
 }
 
 let myName = '';
@@ -209,6 +251,12 @@ let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 // ══════════════════════════════════════════════════════════════
 // API & AMNESIA PROTECTION
 // ══════════════════════════════════════════════════════════════
+function applyRestaurantName() {
+  const title = state.restaurantName || "المطعم";
+  document.getElementById('mainTitle').textContent = title;
+  document.getElementById('pageTitle').textContent = title + ' 🍽️';
+}
+
 async function loadData() {
   try {
     const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
@@ -218,7 +266,6 @@ async function loadData() {
       const serverForgot = (!d.menu || !d.menu.mains || d.menu.mains.length === 0) && (!d.orders || Object.keys(d.orders).length === 0);
       const weHaveData = (state.menu.mains && state.menu.mains.length > 0) || Object.keys(state.orders).length > 0;
       
-      // لو السيرفر نسي وإحنا معانا الداتا (من الموبايل)، نرجعها للسيرفر فوراً
       if (serverForgot && weHaveData) {
         setSyncBadge('🔄 السيرفر نايم، جاري استعادة البيانات من الموبايل...');
         await fetch(API + '/data', {
@@ -230,57 +277,70 @@ async function loadData() {
         return; 
       }
 
-      // لو السيرفر فيه داتا سليمة وأحدث، نعرضها ونحفظ نسخة منها في الموبايل
       if (!serverForgot) {
+        if (d && d.restaurantName) state.restaurantName = d.restaurantName;
         if (d && d.menu)   state.menu   = d.menu;
         if (d && d.orders) state.orders = d.orders;
         updateLocalBackup();
+        updateVault();
       }
     }
   } catch(e) {}
+  applyRestaurantName();
   renderHome();
 }
 
 async function saveData(mode = 'merge', payload = null) {
   setSyncBadge('⏳ بيتحفظ…');
   try {
-    const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
-    if (r.ok) {
-      const latest = await r.json();
-      const serverForgot = (!latest.menu || !latest.menu.mains || latest.menu.mains.length === 0) && (!latest.orders || Object.keys(latest.orders).length === 0);
-      
-      if (latest && !serverForgot) {
-        if (mode === 'merge') {
-           const myCurrentOrder = state.orders[myName];
-           state.orders = { ...(latest.orders || {}) };
-           if (myName && myCurrentOrder) state.orders[myName] = myCurrentOrder;
-           state.menu = latest.menu || state.menu;
-        }
-        else if (mode === 'delete_person') {
-           state.orders = { ...(latest.orders || {}) };
-           delete state.orders[payload]; 
-           state.menu = latest.menu || state.menu;
-        }
-        else if (mode === 'admin_menu') {
-           state.orders = latest.orders || state.orders;
-        }
-        else if (mode === 'clear_orders') {
-           state.menu = latest.menu || state.menu;
-           state.orders = {};
+    if (mode !== 'force_restore') { 
+      const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) {
+        const latest = await r.json();
+        const serverForgot = (!latest.menu || !latest.menu.mains || latest.menu.mains.length === 0) && (!latest.orders || Object.keys(latest.orders).length === 0);
+        
+        if (latest && !serverForgot) {
+          state.restaurantName = latest.restaurantName || state.restaurantName;
+          
+          if (mode === 'merge') {
+             const myCurrentOrder = state.orders[myName];
+             state.orders = { ...(latest.orders || {}) };
+             if (myName && myCurrentOrder) state.orders[myName] = myCurrentOrder;
+             state.menu = latest.menu || state.menu;
+          }
+          else if (mode === 'delete_person') {
+             state.orders = { ...(latest.orders || {}) };
+             delete state.orders[payload]; 
+             state.menu = latest.menu || state.menu;
+          }
+          else if (mode === 'admin_menu' || mode === 'change_name') {
+             state.orders = latest.orders || state.orders;
+          }
+          else if (mode === 'clear_orders') {
+             state.menu = latest.menu || state.menu;
+             state.orders = {};
+             localStorage.removeItem('mohamedi_strong_vault'); 
+          }
+          else if (mode === 'nuke') {
+             // هيمسح كل حاجة من أحدث داتا
+             state.menu = {mains:[], starters:[], juices:[], desserts:[]};
+             state.orders = {};
+             localStorage.removeItem('mohamedi_strong_vault');
+          }
         }
       }
     }
 
-    // تحديث السيرفر
     await fetch(API + '/data', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(state)
     });
     
-    // تحديث ذاكرة الموبايل
     updateLocalBackup();
+    if(mode !== 'nuke' && mode !== 'clear_orders') updateVault(); 
     
+    applyRestaurantName();
     setSyncBadge('✓ اتحفظ');
     renderHome();
   } catch(e) {
@@ -315,6 +375,7 @@ function show(id) {
 // HOME
 // ══════════════════════════════════════════════════════════════
 function renderHome() {
+  applyRestaurantName();
   const names = Object.keys(state.orders);
   const list  = document.getElementById('orderedList');
   const wrap  = document.getElementById('whoOrdered');
@@ -447,6 +508,7 @@ function renderBill() {
       ...(order?.juices||[]).map(x=>`<div class="detail-row"><span>🥤 ${esc(x.name)}</span><span>${fmt(x.price)}</span></div>`),
       ...(order?.desserts||[]).map(x=>`<div class="detail-row"><span>🍮 ${esc(x.name)}</span><span>${fmt(x.price)}</span></div>`),
     ].join('');
+    
     return `
       <div class="card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
@@ -454,7 +516,7 @@ function renderBill() {
           <span style="font-weight:900;color:var(--gold);font-size:16px">${fmt(share)}</span>
         </div>
         ${rows}
-        ${order?.notes?`<p style="font-size:12px;color:#555;margin-top:6px">📝 ${esc(order.notes)}</p>`:''}
+        ${order?.notes ? `<p style="font-size:12px;color:#555;margin-top:6px;white-space:pre-wrap;line-height:1.6;">📝 ${esc(order.notes)}</p>` : ''}
         <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#555">
           <span>قبل الضرايب: ${fmt(sub)}</span>
           <span style="color:#f0ede6;font-weight:700">نصيبه: ${fmt(share)}</span>
@@ -478,11 +540,12 @@ function renderBill() {
 }
 
 function copyBill() {
+  const restName = state.restaurantName || "المطعم";
   const names    = Object.keys(state.orders);
   const subs     = names.map(n=>({name:n,sub:pSub(state.orders[n]),order:state.orders[n]}));
   const grandSub = subs.reduce((s,x)=>s+x.sub,0);
   const cover    = grandSub*COVER, tax=grandSub*TAX, grand=grandSub+cover+tax;
-  let t = '🍽️ فاتورة المحمدي\n══════════════\n';
+  let t = `🍽️ فاتورة ${restName}\n══════════════\n`;
   subs.forEach(({name,sub,order})=>{
     t += `\n👤 ${name}\n`;
     if(order?.main) t+=`  🥩 ${order.main.name} — ${fmt(order.main.price)}\n`;
@@ -531,6 +594,14 @@ document.querySelector('[onclick="show(\'s-admin\')"]').addEventListener('click'
   renderAdminItems();
 });
 
+function changeRestaurantName() {
+  const val = document.getElementById('newRestName').value.trim();
+  if(!val) return;
+  state.restaurantName = val;
+  saveData('change_name');
+  document.getElementById('newRestName').value = '';
+}
+
 function addMenuItem() {
   const cat   = document.getElementById('addCat').value;
   const name  = document.getElementById('addName').value.trim();
@@ -553,10 +624,23 @@ function delMenuItem(id) {
 }
 
 function clearAllOrders() {
-  if (!confirm('هتمسح كل الطلبات، مؤكد؟')) return;
+  if (!confirm('متأكد إنك عايز تمسح الطلبات بس وتحتفظ بالمنيو؟')) return;
   state.orders = {};
   renderHome();
   saveData('clear_orders');
+}
+
+function nukeEverything() {
+  if (!confirm('🚨 تحذير: إنت كده هتمسح المنيو والطلبات وكل حاجة عشان تبدأ مطعم جديد من الصفر.. متأكد؟')) return;
+  if (!confirm('متأكد 100%؟ مفيش رجوع في الخطوة دي!')) return;
+  
+  state.menu = {mains:[], starters:[], juices:[], desserts:[]};
+  state.orders = {};
+  renderHome();
+  renderAdminItems();
+  saveData('nuke');
+  alert('تم تصفير الأبلكيشن بنجاح! جاهز لخروجة جديدة.');
+  show('s-home');
 }
 
 // ══════════════════════════════════════════════════════════════
