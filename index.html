@@ -46,9 +46,9 @@ textarea{resize:none}
 .btn-muted{background:none;color:#444;font-size:12px;margin-top:4px}
 
 /* ── PERSON PILL ── */
-.person-pill{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e1a10;font-size:14px}
+.person-pill{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #1e1a10;font-size:14px}
 
-/* ── T पायल ── */
+/* ── TABS ── */
 .cat-tabs{display:flex;background:#111;border-bottom:1px solid var(--border);overflow-x:auto}
 .cat-tab{flex:1;padding:11px 4px;font-family:'Cairo',sans-serif;font-weight:700;font-size:11px;border:none;cursor:pointer;white-space:nowrap;background:none;color:#444;border-bottom:2px solid transparent;transition:all .2s}
 .cat-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
@@ -99,12 +99,12 @@ textarea{resize:none}
     <div class="card">
       <p class="lbl">اكتب اسمك</p>
       <input id="nameIn" placeholder="اسمك هنا…" onkeydown="if(event.key==='Enter')goOrder()"/>
-      <button class="btn btn-gold btn-full" style="margin-top:10px;padding:13px;font-size:16px" onclick="goOrder()">سجّل طلبي ←</button>
+      <button class="btn btn-gold btn-full" style="margin-top:10px;padding:13px;font-size:16px" onclick="goOrder()">سجّل طلبي أو عدّله ←</button>
     </div>
     <div class="card" id="whoOrdered" style="display:none">
       <p class="lbl">طلبوا لحد دلوقتي (<span id="orderedCount">0</span>)</p>
       <div id="orderedList"></div>
-      <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="show('s-bill');renderBill()">🧾 شوف الفاتورة</button>
+      <button class="btn btn-outline btn-full" style="margin-top:14px" onclick="show('s-bill');renderBill()">🧾 شوف الفاتورة الكاملة</button>
     </div>
     <div style="text-align:center">
       <button class="btn btn-muted" onclick="show('s-admin')">⚙️ إدارة المنيو</button>
@@ -170,7 +170,7 @@ textarea{resize:none}
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// STATE
+// STATE & LOCAL BACKUP (النسخة الاحتياطية المنيعة)
 // ══════════════════════════════════════════════════════════════
 const API = 'https://ibrahemsaad--deeef9c01f9211f1930242dde27851f2.web.val.run';
 const COVER = 0.12, TAX = 0.14;
@@ -186,12 +186,28 @@ let state = {
   menu: {mains:[], starters:[], juices:[], desserts:[]},
   orders: {}
 };
+
+// استرجاع الداتا من ذاكرة الموبايل نفسه في حالة ان المتصفح اتقفل
+try {
+  const savedLocal = localStorage.getItem('mohamedi_backup');
+  if (savedLocal) {
+    const parsed = JSON.parse(savedLocal);
+    if (parsed.menu) state.menu = parsed.menu;
+    if (parsed.orders) state.orders = parsed.orders;
+  }
+} catch(e) {}
+
+// دالة لحفظ الداتا في الموبايل
+function updateLocalBackup() {
+  localStorage.setItem('mohamedi_backup', JSON.stringify(state));
+}
+
 let myName = '';
 let curCat = 'mains';
 let curOrder = {main:null, starters:[], juices:[], desserts:[], notes:''};
 
 // ══════════════════════════════════════════════════════════════
-// API & AMNESIA PROTECTION (مضاد فقدان الذاكرة للسيرفر)
+// API & AMNESIA PROTECTION
 // ══════════════════════════════════════════════════════════════
 async function loadData() {
   try {
@@ -199,40 +215,38 @@ async function loadData() {
     if (r.ok) {
       const d = await r.json();
       
-      // نختبر هل السيرفر عمل ريستارت ونسي الداتا؟ (المنيو فاضي والطلبات فاضية)
       const serverForgot = (!d.menu || !d.menu.mains || d.menu.mains.length === 0) && (!d.orders || Object.keys(d.orders).length === 0);
-      
-      // نختبر هل إحنا معانا داتا متسجلة في المتصفح؟
       const weHaveData = (state.menu.mains && state.menu.mains.length > 0) || Object.keys(state.orders).length > 0;
       
-      // لو السيرفر نسي وإحنا معانا الداتا، نرفعها فوراً للسيرفر كإننا بنعمل باك أب
+      // لو السيرفر نسي وإحنا معانا الداتا (من الموبايل)، نرجعها للسيرفر فوراً
       if (serverForgot && weHaveData) {
-        setSyncBadge('🔄 السيرفر عمل ريستارت، جاري استعادة البيانات...');
+        setSyncBadge('🔄 السيرفر نايم، جاري استعادة البيانات من الموبايل...');
         await fetch(API + '/data', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify(state)
         });
         setTimeout(()=>setSyncBadge(''), 2500);
-        return; // منكملش الكود عشان مانمسحش الشاشة
+        return; 
       }
 
-      // لو السيرفر فيه داتا سليمة، نعرضها
-      if (d && d.menu)   state.menu   = d.menu;
-      if (d && d.orders) state.orders = d.orders;
+      // لو السيرفر فيه داتا سليمة وأحدث، نعرضها ونحفظ نسخة منها في الموبايل
+      if (!serverForgot) {
+        if (d && d.menu)   state.menu   = d.menu;
+        if (d && d.orders) state.orders = d.orders;
+        updateLocalBackup();
+      }
     }
   } catch(e) {}
   renderHome();
 }
 
-async function saveData(mode = 'merge') {
+async function saveData(mode = 'merge', payload = null) {
   setSyncBadge('⏳ بيتحفظ…');
   try {
     const r = await fetch(API + '/data?t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) {
       const latest = await r.json();
-      
-      // تأمين: لو السيرفر كان لسه عامل ريستارت واحنا بنسجل، مندمجش مع الفاضي
       const serverForgot = (!latest.menu || !latest.menu.mains || latest.menu.mains.length === 0) && (!latest.orders || Object.keys(latest.orders).length === 0);
       
       if (latest && !serverForgot) {
@@ -240,6 +254,11 @@ async function saveData(mode = 'merge') {
            const myCurrentOrder = state.orders[myName];
            state.orders = { ...(latest.orders || {}) };
            if (myName && myCurrentOrder) state.orders[myName] = myCurrentOrder;
+           state.menu = latest.menu || state.menu;
+        }
+        else if (mode === 'delete_person') {
+           state.orders = { ...(latest.orders || {}) };
+           delete state.orders[payload]; 
            state.menu = latest.menu || state.menu;
         }
         else if (mode === 'admin_menu') {
@@ -250,14 +269,18 @@ async function saveData(mode = 'merge') {
            state.orders = {};
         }
       }
-      // لو serverForgot طلع True، المتصفح هيرفع الداتا كاملة للسيرفر بدون دمج عشان يرجعه للحياة
     }
 
+    // تحديث السيرفر
     await fetch(API + '/data', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(state)
     });
+    
+    // تحديث ذاكرة الموبايل
+    updateLocalBackup();
+    
     setSyncBadge('✓ اتحفظ');
     renderHome();
   } catch(e) {
@@ -268,13 +291,11 @@ async function saveData(mode = 'merge') {
 
 function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; }
 
-// التحديث التلقائي المستمر
 setInterval(async ()=>{
   await loadData();
   if(document.getElementById('s-bill').classList.contains('active')) renderBill();
 }, 6000);
 
-// تحديث فوري أول ما تفتح الشاشة تاني
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     loadData();
@@ -303,8 +324,17 @@ function renderHome() {
   list.innerHTML = names.map(n=>`
     <div class="person-pill">
       <span>👤 ${esc(n)}</span>
-      <span style="color:var(--gold);font-weight:700">${fmt(pSub(state.orders[n]))}</span>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <span style="color:var(--gold);font-weight:700">${fmt(pSub(state.orders[n]))}</span>
+        <button onclick="deleteSpecificOrder('${esc(n)}')" style="background:none; border:none; color:var(--red); font-size:14px; cursor:pointer;" title="مسح طلب ${esc(n)}">❌</button>
+      </div>
     </div>`).join('');
+}
+
+function deleteSpecificOrder(nameToDelete) {
+  if (!confirm(`متأكد إنك عايز تمسح الأوردر بتاع "${nameToDelete}" بالكامل؟`)) return;
+  delete state.orders[nameToDelete];
+  saveData('delete_person', nameToDelete);
 }
 
 function goOrder() {
@@ -388,7 +418,7 @@ function updateSubtotal() {
 function saveOrder() {
   curOrder.notes = document.getElementById('orderNotes').value;
   state.orders[myName] = { ...curOrder };
-  saveData('merge'); // بيحفظ بالدمج الذكي
+  saveData('merge'); 
   renderBill();
   show('s-bill');
 }
@@ -544,7 +574,7 @@ function fmt(n) {
 }
 
 function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 }
 
 // ══════════════════════════════════════════════════════════════
