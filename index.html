@@ -84,6 +84,10 @@ textarea{resize:none}
 
 .flex-row{display:flex;gap:8px}
 .hint{color:#444;font-size:12px;text-align:center;margin-bottom:10px}
+
+/* ── LOG ITEM ── */
+.log-item{display:flex; justify-content:space-between; padding:10px; border-bottom:1px dashed var(--border); font-size:13px;}
+.log-item .time{font-size:11px; color:#888; white-space:nowrap; margin-right:10px;}
 </style>
 </head>
 <body>
@@ -149,6 +153,8 @@ textarea{resize:none}
   </div>
   <div style="padding:16px">
     
+    <button class="btn btn-outline btn-full" style="margin-bottom:14px; border-color:var(--gold2);" onclick="showLogs()">📜 عرض سجل الحركات (Log)</button>
+
     <div class="card" style="border-color:var(--gold2); background:#1c1810">
       <p class="lbl" style="color:var(--gold); text-align:center;">الداتا طارت بالغلط؟</p>
       <button class="btn btn-gold btn-full" style="padding:12px;" onclick="restoreVault()">🛡️ استرجاع من خزنة الطوارئ</button>
@@ -185,6 +191,17 @@ textarea{resize:none}
   </div>
 </div>
 
+<div id="s-logs" class="screen">
+  <div class="hdr">
+    <button class="back-btn" onclick="show('s-admin')">← رجوع</button>
+    <span class="hdr-title">📜 سجل الحركات</span>
+    <span></span>
+  </div>
+  <div style="padding:16px">
+    <div class="card" id="logContainer" style="padding:0; overflow:hidden;"></div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 // STATE & LOCAL BACKUP
@@ -202,7 +219,8 @@ const CAT_META = {
 let state = {
   restaurantName: "المحمدي",
   menu: {mains:[], starters:[], juices:[], desserts:[]},
-  orders: {}
+  orders: {},
+  logs: [] // سجل الحركات
 };
 
 try {
@@ -212,6 +230,7 @@ try {
     if (parsed.restaurantName) state.restaurantName = parsed.restaurantName;
     if (parsed.menu) state.menu = parsed.menu;
     if (parsed.orders) state.orders = parsed.orders;
+    if (parsed.logs) state.logs = parsed.logs;
   }
 } catch(e) {}
 
@@ -232,7 +251,7 @@ function restoreVault() {
     if (parsed.orders && Object.keys(parsed.orders).length > 0) {
       if(confirm('لقينا نسخة محفوظة، متأكد إنك عايز تسترجعها وتمسح أي حاجة موجودة دلوقتي؟')) {
         state = parsed;
-        saveData('force_restore'); 
+        saveData('force_restore', null, '🛡️ تم استرجاع البيانات المفقودة من خزنة الطوارئ'); 
         alert('تم الاسترجاع بنجاح!');
         show('s-home');
       }
@@ -281,6 +300,7 @@ async function loadData() {
         if (d && d.restaurantName) state.restaurantName = d.restaurantName;
         if (d && d.menu)   state.menu   = d.menu;
         if (d && d.orders) state.orders = d.orders;
+        if (d && d.logs)   state.logs   = d.logs;
         updateLocalBackup();
         updateVault();
       }
@@ -290,7 +310,7 @@ async function loadData() {
   renderHome();
 }
 
-async function saveData(mode = 'merge', payload = null) {
+async function saveData(mode = 'merge', payload = null, logMsg = null) {
   setSyncBadge('⏳ بيتحفظ…');
   try {
     if (mode !== 'force_restore') { 
@@ -301,6 +321,7 @@ async function saveData(mode = 'merge', payload = null) {
         
         if (latest && !serverForgot) {
           state.restaurantName = latest.restaurantName || state.restaurantName;
+          state.logs = latest.logs || []; // نجيب أحدث سجل من السيرفر
           
           if (mode === 'merge') {
              const myCurrentOrder = state.orders[myName];
@@ -322,13 +343,19 @@ async function saveData(mode = 'merge', payload = null) {
              localStorage.removeItem('mohamedi_strong_vault'); 
           }
           else if (mode === 'nuke') {
-             // هيمسح كل حاجة من أحدث داتا
              state.menu = {mains:[], starters:[], juices:[], desserts:[]};
              state.orders = {};
              localStorage.removeItem('mohamedi_strong_vault');
           }
         }
       }
+    }
+
+    // إضافة حركة جديدة للسجل لو موجودة
+    if (logMsg) {
+      const timeStr = new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
+      state.logs.unshift({ time: timeStr, msg: logMsg });
+      if (state.logs.length > 50) state.logs = state.logs.slice(0, 50); // نحتفظ بآخر 50 حركة بس
     }
 
     await fetch(API + '/data', {
@@ -354,6 +381,7 @@ function setSyncBadge(t){ document.getElementById('syncBadge').textContent = t; 
 setInterval(async ()=>{
   await loadData();
   if(document.getElementById('s-bill').classList.contains('active')) renderBill();
+  if(document.getElementById('s-logs').classList.contains('active')) renderLogs();
 }, 6000);
 
 document.addEventListener("visibilitychange", () => {
@@ -395,7 +423,7 @@ function renderHome() {
 function deleteSpecificOrder(nameToDelete) {
   if (!confirm(`متأكد إنك عايز تمسح الأوردر بتاع "${nameToDelete}" بالكامل؟`)) return;
   delete state.orders[nameToDelete];
-  saveData('delete_person', nameToDelete);
+  saveData('delete_person', nameToDelete, `❌ تم مسح أوردر يخص: ${nameToDelete}`);
 }
 
 function goOrder() {
@@ -479,7 +507,7 @@ function updateSubtotal() {
 function saveOrder() {
   curOrder.notes = document.getElementById('orderNotes').value;
   state.orders[myName] = { ...curOrder };
-  saveData('merge'); 
+  saveData('merge', null, `👤 قام ${myName} بحفظ/تعديل طلبه`); 
   renderBill();
   show('s-bill');
 }
@@ -563,9 +591,28 @@ function copyBill() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ADMIN
+// ADMIN & LOGS
 // ══════════════════════════════════════════════════════════════
 let adminCat = 'mains';
+
+function showLogs() {
+  show('s-logs');
+  renderLogs();
+}
+
+function renderLogs() {
+  const lc = document.getElementById('logContainer');
+  if (!state.logs || state.logs.length === 0) {
+    lc.innerHTML = `<div class="empty" style="padding:20px 0;"><p>مفيش حركات متسجلة لسه</p></div>`;
+    return;
+  }
+  lc.innerHTML = state.logs.map(l => `
+    <div class="log-item">
+      <span>${esc(l.msg)}</span>
+      <span class="time">${l.time}</span>
+    </div>
+  `).join('');
+}
 
 function renderAdminTabs() {
   document.getElementById('adminTabs').innerHTML = Object.entries(CAT_META).map(([k,m])=>`
@@ -584,7 +631,7 @@ function renderAdminItems() {
           <span style="font-size:14px">${esc(item.name)}</span>
           <div style="display:flex;gap:8px;align-items:center">
             <span style="color:var(--gold);font-weight:700;font-size:13px">${fmt(item.price)}</span>
-            <button class="btn btn-danger btn-sm" onclick="delMenuItem('${item.id}')">حذف</button>
+            <button class="btn btn-danger btn-sm" onclick="delMenuItem('${item.id}', '${esc(item.name)}')">حذف</button>
           </div>
         </div>`).join('');
 }
@@ -598,7 +645,7 @@ function changeRestaurantName() {
   const val = document.getElementById('newRestName').value.trim();
   if(!val) return;
   state.restaurantName = val;
-  saveData('change_name');
+  saveData('change_name', null, `🏷️ تم تغيير اسم المطعم إلى: ${val}`);
   document.getElementById('newRestName').value = '';
 }
 
@@ -614,20 +661,20 @@ function addMenuItem() {
   adminCat = cat;
   renderAdminTabs();
   renderAdminItems();
-  saveData('admin_menu'); 
+  saveData('admin_menu', null, `➕ تم إضافة صنف للمنيو: ${name}`); 
 }
 
-function delMenuItem(id) {
+function delMenuItem(id, itemName) {
   state.menu[adminCat] = state.menu[adminCat].filter(x=>x.id!==id);
   renderAdminItems();
-  saveData('admin_menu');
+  saveData('admin_menu', null, `➖ تم حذف صنف من المنيو: ${itemName}`);
 }
 
 function clearAllOrders() {
   if (!confirm('متأكد إنك عايز تمسح الطلبات بس وتحتفظ بالمنيو؟')) return;
   state.orders = {};
   renderHome();
-  saveData('clear_orders');
+  saveData('clear_orders', null, '🗑️ تم مسح جميع الطلبات من قِبل الإدارة');
 }
 
 function nukeEverything() {
@@ -638,7 +685,7 @@ function nukeEverything() {
   state.orders = {};
   renderHome();
   renderAdminItems();
-  saveData('nuke');
+  saveData('nuke', null, '🚨 تم تصفير الأبلكيشن بالكامل (مسح كل حاجة)');
   alert('تم تصفير الأبلكيشن بنجاح! جاهز لخروجة جديدة.');
   show('s-home');
 }
